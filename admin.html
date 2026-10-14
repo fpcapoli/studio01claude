@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Painel • Studio 01</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+<style>
+:root{--card:#111;--line:#262626;--mut:#9a9a9a;--wa:#25d366;--red:#e53935;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000;color:#eee;font-family:Inter,system-ui,sans-serif;line-height:1.45;padding-bottom:60px}
+.wrap{max-width:720px;margin:auto;padding:0 14px}
+.hide{display:none!important}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+input,select{width:100%;padding:12px;background:#000;border:1.5px solid var(--line);border-radius:10px;color:#fff;font-size:1rem;font-family:inherit;outline:none}
+input:focus,select:focus{border-color:#fff}
+label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
+.btn{padding:11px 16px;border-radius:10px;border:1px solid #444;background:#1a1a1a;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;font-size:.88rem}
+.btn.w{background:#fff;color:#000;border-color:#fff}.btn.g{background:var(--wa);color:#000;border-color:var(--wa)}.btn.r{background:#2a1010;border-color:#5a2020;color:#ff8a80}
+.btn.full{width:100%;margin-top:14px;padding:14px}
+.btn:disabled{opacity:.4}
+/* login */
+#login{min-height:100vh;display:grid;place-items:center;padding:18px}
+#login .card{width:100%;max-width:380px;text-align:center}
+#login img{height:90px;mix-blend-mode:lighten}
+#login h2{margin:6px 0 4px}#login p{color:var(--mut);font-size:.85rem}
+.lnk{background:none;border:none;color:var(--mut);text-decoration:underline;font-size:.8rem;cursor:pointer;margin-top:14px;font-family:inherit}
+.err{color:#ff8a80;font-size:.85rem;margin-top:10px;min-height:1em}
+/* app */
+.top{position:sticky;top:0;z-index:10;background:#000;border-bottom:1px solid var(--line);padding:10px 0}
+.top .wrap{display:flex;align-items:center;justify-content:space-between}
+.top img{height:38px;mix-blend-mode:lighten}
+.dn{display:flex;gap:6px;margin:16px 0 10px}
+.dn input{text-align:center;font-weight:600}.dn .btn{padding:0 16px;font-size:1.2rem}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:0 0 auto;padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:#000;color:#ddd;cursor:pointer;font-size:.82rem;font-family:inherit}
+.chip.on{background:#fff;color:#000;border-color:#fff;font-weight:700}
+.acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.stats{display:flex;gap:10px;margin-bottom:12px}
+.stats div{flex:1;text-align:center;padding:10px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.stats b{display:block;font-size:1.3rem}.stats span{font-size:.72rem;color:var(--mut)}
+.it{border-left:4px solid #fff;margin-bottom:10px;font-size:.88rem}
+.it.bl{border-left-color:var(--red);background:#150c0c}
+.it .h{display:flex;justify-content:space-between;gap:8px;margin-bottom:4px}
+.it .h b{font-size:1.05rem}.it .h span{color:var(--mut);font-size:.8rem}
+.it p{color:#ccc}.it .bt{display:flex;gap:8px;margin-top:10px}.it .bt .btn{flex:1;padding:9px}
+.empty{text-align:center;color:var(--mut);padding:36px 0}
+/* modal */
+#md{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+#md .card{width:100%;max-width:520px;max-height:92vh;overflow:auto;border-radius:18px 18px 0 0}
+#md h3{margin-bottom:4px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sv{display:grid;grid-template-columns:1fr;gap:6px;max-height:190px;overflow:auto}
+.ck{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:.88rem;margin:0;color:#eee}
+.ck input{width:auto}.ck span{margin-left:auto;color:var(--mut)}
+.warn{background:#2b2108;border:1px solid #6b5313;color:#ffd666;padding:10px;border-radius:8px;font-size:.82rem;margin:10px 0}
+@media(min-width:600px){#md{align-items:center}#md .card{border-radius:18px}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login"><div class="card">
+ <img src="logo.png" alt="Studio 01">
+ <h2>Painel do Barbeiro</h2><p>Acesso restrito</p>
+ <label style="text-align:left">E-mail</label><input id="em" type="email" autocomplete="username" placeholder="seu@email.com">
+ <label style="text-align:left">Senha</label><input id="pw" type="password" autocomplete="current-password" placeholder="Sua senha">
+ <button class="btn w full" id="bIn">Entrar</button>
+ <div class="err" id="lerr"></div>
+ <button class="lnk" id="bForgot">Esqueci minha senha</button>
+</div></div>
+
+<!-- APP -->
+<div id="app" class="hide">
+ <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <button class="btn" id="bOut">Sair</button></div></div></div>
+ <div class="wrap">
+  <div class="dn"><button class="btn" id="pv">‹</button><input type="date" id="dt"><button class="btn" id="nx">›</button><button class="btn" id="hj">Hoje</button></div>
+  <div class="chips" id="chips"></div>
+  <div class="acts"><button class="btn w" id="bNew">＋ Novo agendamento</button><button class="btn r" id="bBlock">🔒 Bloquear horário</button></div>
+  <div class="stats"><div><b id="stN">0</b><span>Agendamentos</span></div><div><b id="stV">R$ 0</b><span>Previsto no dia</span></div></div>
+  <div id="list"></div>
+ </div>
+</div>
+<div id="md" class="hide"><div class="card" id="mdc"></div></div>
+
+<script src="config.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const brl=v=>"R$ "+Number(v).toFixed(2).replace(".",",");
+const hhmm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const fdata=s=>s.split("-").reverse().join("/");
+const timeOpts=(sel,max=CLOSE)=>{let o="";for(let t=OPEN;t<=max;t+=STEP)o+=`<option value="${t}"${t==sel?" selected":""}>${hhmm(t)}</option>`;return o};
+
+if(FIREBASE.apiKey.startsWith("SUA_")){
+ document.body.innerHTML='<div style="padding:30px;max-width:520px;margin:auto"><h2>Falta configurar o Firebase</h2><p style="color:#aaa;margin-top:10px">Abra o arquivo <b>config.js</b> e cole as chaves do seu projeto Firebase no bloco FIREBASE. O passo a passo está no LEIA-ME.</p></div>';
+ throw new Error("Firebase não configurado");
+}
+firebase.initializeApp(FIREBASE);
+const auth=firebase.auth(),db=firebase.firestore();
+let date=iso(new Date()),fb="all",AG=[],OC=[],off=null;
+
+/* ---------- login ---------- */
+$("em").value=localStorage.getItem("s01_email")||"";
+const msgErr=c=>({"auth/invalid-credential":"E-mail ou senha incorretos.","auth/wrong-password":"E-mail ou senha incorretos.","auth/user-not-found":"E-mail ou senha incorretos.","auth/invalid-email":"E-mail inválido.","auth/too-many-requests":"Muitas tentativas. Aguarde alguns minutos ou redefina a senha.","auth/network-request-failed":"Sem conexão com a internet."}[c]||"Não foi possível entrar ("+c+").");
+async function entrar(){
+ $("lerr").textContent="";$("bIn").disabled=true;
+ try{await auth.signInWithEmailAndPassword($("em").value.trim(),$("pw").value);localStorage.setItem("s01_email",$("em").value.trim())}
+ catch(e){$("lerr").textContent=msgErr(e.code)}
+ $("bIn").disabled=false;
+}
+$("bIn").onclick=entrar;$("pw").onkeydown=e=>{if(e.key=="Enter")entrar()};
+$("bForgot").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textContent="Digite seu e-mail acima primeiro.";return}
+ try{await auth.sendPasswordResetEmail(e);$("lerr").style.color="#8ef0b0";$("lerr").textContent="Enviamos um link para redefinir a senha no seu e-mail."}catch(x){$("lerr").style.color="";$("lerr").textContent=msgErr(x.code)}};
+$("bOut").onclick=()=>auth.signOut();
+auth.onAuthStateChanged(u=>{
+ $("login").classList.toggle("hide",!!u);$("app").classList.toggle("hide",!u);
+ if(u){$("dt").value=date;montaChips();listen()}else{off&&off();off=null}
+});
+
+/* ---------- agenda ---------- */
+function montaChips(){
+ $("chips").innerHTML=[["all","Todos"],...BARBEIROS.map(b=>[b.n,b.n])].map(([v,t])=>`<button class="chip${fb==v?" on":""}" data-v="${esc(v)}">${esc(t)}</button>`).join("");
+}
+$("chips").onclick=e=>{const c=e.target.closest(".chip");if(!c)return;fb=c.dataset.v;montaChips();render()};
+function setDate(d){date=d;$("dt").value=d;listen()}
+$("dt").onchange=e=>e.target.value&&setDate(e.target.value);
+const shift=n=>{const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+n);setDate(iso(d))};
+$("pv").onclick=()=>shift(-1);$("nx").onclick=()=>shift(1);$("hj").onclick=()=>setDate(iso(new Date()));
+
+function listen(){
+ off&&off();AG=[];OC=[];render();
+ const e=err=>{console.error(err);$("list").innerHTML='<div class="empty">Sem permissão ou erro ao carregar. Confira as regras do Firestore e se o e-mail do painel está nelas.</div>'};
+ const u1=db.collection("agendamentos").where("data","==",date).onSnapshot(s=>{AG=s.docs.map(d=>({id:d.id,...d.data()}));render()},e);
+ const u2=db.collection("ocupados").where("data","==",date).onSnapshot(s=>{OC=s.docs.map(d=>({id:d.id,...d.data()}));render()},e);
+ off=()=>{u1();u2()};
+}
+const dosel=x=>fb=="all"||x.barbeiro==fb||x.barbeiro=="*";
+function render(){
+ const ag=AG.filter(dosel).map(x=>({...x,k:"ag"}));
+ const bl=OC.filter(x=>x.bloqueio&&dosel(x)).map(x=>({...x,k:"bl"}));
+ const all=[...ag,...bl].sort((a,b)=>a.inicio-b.inicio);
+ $("stN").textContent=ag.length;$("stV").textContent=brl(ag.reduce((a,x)=>a+(+x.total||0),0));
+ if(!all.length){$("list").innerHTML=`<div class="empty">Nenhum agendamento em ${fdata(date)}.</div>`;return}
+ $("list").innerHTML=all.map(x=>x.k=="bl"?
+  `<div class="card it bl"><div class="h"><b>🔒 ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${x.barbeiro=="*"?"Todos os barbeiros":esc(x.barbeiro)}</span></div><p>${esc(x.motivo||"Horário bloqueado")}</p><div class="bt"><button class="btn" data-a="free" data-id="${x.id}">Liberar horário</button></div></div>`:
+  `<div class="card it"><div class="h"><b>⏰ ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${esc(x.barbeiro)}</span></div>
+   <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${brl(x.total||0)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
+   <div class="bt">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:""}<button class="btn r" data-a="del" data-id="${x.id}">Cancelar</button></div></div>`).join("");
+}
+$("list").onclick=async e=>{
+ const b=e.target.closest("[data-a]");if(!b)return;const id=b.dataset.id,x=AG.find(i=>i.id==id);
+ if(b.dataset.a=="wa"){let t=x.telefone.replace(/\D/g,"");if(t.length<=11)t="55"+t;
+  const m=`Olá, ${x.cliente.split(" ")[0]}! Aqui é do Studio 01 Barbearia. Confirmando seu horário dia ${fdata(x.data)} às ${hhmm(x.inicio)} com ${x.barbeiro}. 💈`;
+  window.open(`https://wa.me/${t}?text=${encodeURIComponent(m)}`,"_blank")}
+ if(b.dataset.a=="del"&&confirm(`Cancelar o horário de ${x.cliente} às ${hhmm(x.inicio)}?\nO horário volta a ficar livre no site.`)){
+  const bt=db.batch();bt.delete(db.collection("agendamentos").doc(id));bt.delete(db.collection("ocupados").doc(id));await bt.commit()}
+ if(b.dataset.a=="free"&&confirm("Liberar este horário para os clientes?"))await db.collection("ocupados").doc(id).delete();
+};
+
+/* ---------- modal ---------- */
+const abre=h=>{$("mdc").innerHTML=h;$("md").classList.remove("hide")};
+const fecha=()=>$("md").classList.add("hide");
+$("md").onclick=e=>{if(e.target.id=="md"||e.target.dataset.x)fecha()};
+const conflito=(barb,ini,fim,lista)=>lista.filter(b=>(b.barbeiro==barb||b.barbeiro=="*"||barb=="*")&&ini<b.fim&&fim>b.inicio);
+
+/* novo agendamento manual */
+$("bNew").onclick=()=>{
+ abre(`<h3>Novo agendamento</h3><p style="color:var(--mut);font-size:.82rem">Para clientes que ligam ou chegam na loja • ${fdata(date)}</p>
+ <label>Nome do cliente</label><input id="mN" placeholder="Nome">
+ <label>WhatsApp (opcional)</label><input id="mT" inputmode="tel" placeholder="(21) 99999-9999">
+ <div class="row2"><div><label>Barbeiro</label><select id="mB">${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select></div>
+ <div><label>Início</label><select id="mH">${timeOpts(OPEN,CLOSE-STEP)}</select></div></div>
+ <label>Serviços</label><div class="sv">${SERVICOS.map(s=>`<label class="ck"><input type="checkbox" value="${s.id}">${s.n}<span>${brl(s.p)} • ${s.min}min</span></label>`).join("")}</div>
+ <div id="mW"></div>
+ <button class="btn g full" id="mS">Salvar agendamento</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ $("mS").onclick=async()=>{
+  const nome=$("mN").value.trim(),ids=[...document.querySelectorAll("#mdc .sv input:checked")].map(i=>i.value);
+  if(!nome||!ids.length){$("mW").innerHTML='<div class="warn">Informe o nome e escolha ao menos um serviço.</div>';return}
+  const sv=ids.map(id=>SERVICOS.find(s=>s.id==id)),D=sv.reduce((a,s)=>a+s.min,0),ini=+$("mH").value,fim=ini+D,barb=$("mB").value;
+  const cf=conflito(barb,ini,fim,OC);
+  if(cf.length&&!confirm(`Esse horário conflita com outro agendamento ou bloqueio (${cf.map(c=>hhmm(c.inicio)+"–"+hhmm(c.fim)).join(", ")}). Salvar mesmo assim?`))return;
+  if(fim>CLOSE&&!confirm(`O atendimento termina às ${hhmm(fim)}, depois do fechamento. Salvar mesmo assim?`))return;
+  const id=db.collection("agendamentos").doc().id,bt=db.batch();
+  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),duracao:D,manual:true,criadoEm:new Date().toISOString()});
+  bt.set(db.collection("ocupados").doc(id),{barbeiro:barb,data:date,inicio:ini,fim});
+  $("mS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro ao salvar: '+esc(e.code||e.message)+'</div>';$("mS").disabled=false}
+ };
+};
+
+/* bloquear horário */
+$("bBlock").onclick=()=>{
+ abre(`<h3>🔒 Bloquear horário</h3><p style="color:var(--mut);font-size:.82rem">O horário deixa de aparecer para os clientes no site.</p>
+ <label>Barbeiro</label><select id="bB"><option value="*">Todos os barbeiros</option>${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select>
+ <div class="row2"><div><label>De (data)</label><input type="date" id="bD" value="${date}"></div><div><label>Até (opcional)</label><input type="date" id="bE"></div></div>
+ <label class="ck" style="margin-top:12px"><input type="checkbox" id="bAll">Dia inteiro</label>
+ <div class="row2" id="bHr"><div><label>Das</label><select id="bI">${timeOpts(12*60,CLOSE-STEP)}</select></div><div><label>Até às</label><select id="bF">${timeOpts(13*60)}</select></div></div>
+ <label>Motivo (só você vê)</label><input id="bM" placeholder="Ex: almoço, médico, folga, feriado">
+ <div id="mW"></div>
+ <button class="btn r full" id="bS">Bloquear</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ $("bAll").onchange=e=>$("bHr").classList.toggle("hide",e.target.checked);
+ $("bS").onclick=async()=>{
+  const barb=$("bB").value,all=$("bAll").checked,ini=all?OPEN:+$("bI").value,fim=all?CLOSE:+$("bF").value,d1=$("bD").value,d2=$("bE").value||d1;
+  if(!d1||d2<d1||fim<=ini){$("mW").innerHTML='<div class="warn">Confira as datas e o intervalo de horas.</div>';return}
+  const dias=[];for(let d=new Date(d1+"T12:00:00");iso(d)<=d2&&dias.length<62;d.setDate(d.getDate()+1))if(DIAS_ABERTOS.includes(d.getDay()))dias.push(iso(d));
+  if(!dias.length){$("mW").innerHTML='<div class="warn">Nenhum dia de funcionamento nesse período.</div>';return}
+  const jaTem=dias.includes(date)?AG.filter(a=>conflito(barb,ini,fim,[a]).length):[];
+  if(jaTem.length&&!confirm(`Atenção: já existe(m) ${jaTem.length} agendamento(s) nesse período (ex: ${jaTem[0].cliente}). Eles NÃO serão cancelados. Bloquear mesmo assim?`))return;
+  const bt=db.batch();dias.forEach(d=>bt.set(db.collection("ocupados").doc(),{barbeiro:barb,data:d,inicio:ini,fim,bloqueio:true,motivo:$("bM").value.trim()}));
+  $("bS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro: '+esc(e.code||e.message)+'</div>';$("bS").disabled=false}
+ };
+};
+</script>
+</body>
+</html>

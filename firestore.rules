@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // TROQUE pelo e-mail que você vai usar para entrar no painel
+    function admin() {
+      return request.auth != null
+          && request.auth.token.email in ['SEU_EMAIL_AQUI@gmail.com'];
+    }
+
+    // Dados completos do cliente: só o dono lê, edita e apaga. O site só cria.
+    match /agendamentos/{id} {
+      allow create: if request.resource.data.cliente is string
+                    && request.resource.data.cliente.size() <= 80
+                    && request.resource.data.telefone is string
+                    && request.resource.data.telefone.size() <= 20
+                    && request.resource.data.data is string
+                    && request.resource.data.data.size() == 10
+                    && request.resource.data.inicio is int
+                    && request.resource.data.fim is int
+                    && request.resource.data.fim > request.resource.data.inicio;
+      allow read, update, delete: if admin();
+    }
+
+    // Horários ocupados/bloqueados (SEM nome nem telefone): o site lê para esconder horários.
+    match /ocupados/{id} {
+      allow read: if true;
+      allow create: if admin() || (
+                       request.resource.data.keys().hasOnly(['barbeiro','data','inicio','fim'])
+                    && request.resource.data.barbeiro is string
+                    && request.resource.data.barbeiro != '*'
+                    && request.resource.data.inicio is int
+                    && request.resource.data.fim is int
+                    && request.resource.data.fim > request.resource.data.inicio
+                    && request.resource.data.fim - request.resource.data.inicio <= 240);
+      allow update, delete: if admin();
+    }
+  }
+}
