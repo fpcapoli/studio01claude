@@ -150,7 +150,7 @@ function render(){
  $("list").innerHTML=all.map(x=>x.k=="bl"?
   `<div class="card it bl"><div class="h"><b>🔒 ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${x.barbeiro=="*"?"Todos os barbeiros":esc(x.barbeiro)}</span></div><p>${esc(x.motivo||"Horário bloqueado")}</p><div class="bt"><button class="btn" data-a="free" data-id="${x.id}">Liberar horário</button></div></div>`:
   `<div class="card it"><div class="h"><b>⏰ ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${esc(x.barbeiro)}</span></div>
-   <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${brl(x.total||0)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
+   <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
    <div class="bt">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:""}<button class="btn r" data-a="del" data-id="${x.id}">Cancelar</button></div></div>`).join("");
 }
 $("list").onclick=async e=>{
@@ -176,7 +176,7 @@ $("bNew").onclick=()=>{
  <label>WhatsApp (opcional)</label><input id="mT" inputmode="tel" placeholder="(21) 99999-9999">
  <div class="row2"><div><label>Barbeiro</label><select id="mB">${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select></div>
  <div><label>Início</label><select id="mH">${timeOpts(OPEN,CLOSE-STEP)}</select></div></div>
- <label>Serviços</label><div class="sv">${SERVICOS.map(s=>`<label class="ck"><input type="checkbox" value="${s.id}">${s.n}<span>${brl(s.p)} • ${s.min}min</span></label>`).join("")}</div>
+ <label>Serviços</label><div class="sv">${SERVICOS.map(s=>`<label class="ck"><input type="checkbox" value="${s.id}">${s.n}<span>${precoServ(s)} • ${s.min}min</span></label>`).join("")}</div>
  <div id="mW"></div>
  <button class="btn g full" id="mS">Salvar agendamento</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
  $("mS").onclick=async()=>{
@@ -187,7 +187,7 @@ $("bNew").onclick=()=>{
   if(cf.length&&!confirm(`Esse horário conflita com outro agendamento ou bloqueio (${cf.map(c=>hhmm(c.inicio)+"–"+hhmm(c.fim)).join(", ")}). Salvar mesmo assim?`))return;
   if(fim>CLOSE&&!confirm(`O atendimento termina às ${hhmm(fim)}, depois do fechamento. Salvar mesmo assim?`))return;
   const id=db.collection("agendamentos").doc().id,bt=db.batch();
-  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),duracao:D,manual:true,criadoEm:new Date().toISOString()});
+  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),combinar:sv.some(s=>s.combinar),duracao:D,manual:true,criadoEm:new Date().toISOString()});
   bt.set(db.collection("ocupados").doc(id),{barbeiro:barb,data:date,inicio:ini,fim});
   $("mS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro ao salvar: '+esc(e.code||e.message)+'</div>';$("mS").disabled=false}
  };

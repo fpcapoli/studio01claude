@@ -143,9 +143,9 @@ try{ if(!FIREBASE.apiKey.startsWith("SUA_")){firebase.initializeApp(FIREBASE);db
 
 /* ---- render estático ---- */
 $("waFoot").href="https://wa.me/"+WHATS;
-$("prices").innerHTML=SERVICOS.map(s=>`<div class="pr"><div><span>${s.c}</span><b>${s.n}</b><span>${s.min} min</span></div><em>${s.ap?"<i>a partir de</i>":""}${brl(s.p)}</em></div>`).join("");
+$("prices").innerHTML=SERVICOS.map(s=>`<div class="pr"><div><span>${s.c}</span><b>${s.n}</b><span>${s.min} min</span></div><em>${precoServ(s)}</em></div>`).join("");
 $("team").innerHTML=BARBEIROS.map(b=>`<div class="tm"><img src="${b.img}" alt="${b.n}" loading="lazy"><div><b>${b.n}</b><br><span>${b.e}</span></div></div>`).join("");
-$("svList").innerHTML=SERVICOS.map(s=>`<button class="opt" data-id="${s.id}"><span>${s.n}<small>${s.min} min</small></span><b>${s.ap?"<small>a partir de</small>":""}${brl(s.p)}</b></button>`).join("");
+$("svList").innerHTML=SERVICOS.map(s=>`<button class="opt" data-id="${s.id}"><span>${s.n}<small>${s.min} min</small></span><b>${precoServ(s)}</b></button>`).join("");
 $("barList").innerHTML=[{n:"Primeiro disponível",any:1},...BARBEIROS].map(b=>`<button class="opt${b.any?" on":""}" data-b="${b.any?"any":b.n}"><span>${b.any?"⚡ ":"✂️ "}${b.n}</span></button>`).join("");
 
 /* ---- datas ---- */
@@ -160,7 +160,7 @@ $("barList").innerHTML=[{n:"Primeiro disponível",any:1},...BARBEIROS].map(b=>`<
 /* ---- lógica ---- */
 const dur=()=>[...S.sv].reduce((a,id)=>a+SERVICOS.find(s=>s.id==id).min,0);
 const total=()=>[...S.sv].reduce((a,id)=>a+SERVICOS.find(s=>s.id==id).p,0);
-const anyAp=()=>[...S.sv].some(id=>SERVICOS.find(s=>s.id==id).ap);
+const anyAp=()=>[...S.sv].some(id=>SERVICOS.find(s=>s.id==id).combinar);
 
 async function carregaOcupados(){
  busy=[];
@@ -205,8 +205,8 @@ function sync(){
  $("rData").textContent=S.date?S.date.split("-").reverse().join("/"):"—";
  $("rHora").textContent=S.time!=null?hhmm(S.time)+" – "+hhmm(S.time+D):"—";
  $("rDur").textContent=D+" min";
- $("rTot").textContent=brl(total());
- $("rNote").textContent=anyAp()?"* Serviços “a partir de” podem ter o valor ajustado conforme o trabalho.":"";
+ $("rTot").textContent=totalTxt(total(),anyAp());
+ $("rNote").textContent=anyAp()?"* Luzes, reflexo, nevou e platinado: o valor é combinado com o barbeiro.":"";
  $("s1").classList.toggle("done",S.sv.size>0);
  $("s3").classList.toggle("done",S.time!=null);
  validar(false);
@@ -245,7 +245,7 @@ $("btnOk").onclick=async()=>{
  const quem=cands.find(b=>livre(b,S.time,S.time+D));
  if(!quem){alert("Ops! Esse horário acabou de ser ocupado. Escolha outro, por favor.");S.time=null;btn.textContent="Confirmar agendamento";renderSlots();return}
  const dados={cliente:$("nome").value.trim(),telefone:$("tel").value,barbeiro:quem,data:S.date,inicio:S.time,fim:S.time+D,
-  horario:hhmm(S.time),servicos:[...S.sv].map(id=>SERVICOS.find(s=>s.id==id).n),total:total(),duracao:D,criadoEm:new Date().toISOString()};
+  horario:hhmm(S.time),servicos:[...S.sv].map(id=>SERVICOS.find(s=>s.id==id).n),total:total(),combinar:anyAp(),duracao:D,criadoEm:new Date().toISOString()};
  try{
   if(db){const id=db.collection("agendamentos").doc().id,bt=db.batch();
    bt.set(db.collection("agendamentos").doc(id),dados);
@@ -258,12 +258,12 @@ $("btnOk").onclick=async()=>{
 
 function sucesso(d){
  const data=d.data.split("-").reverse().join("/");
- const msg=`Olá! Acabei de agendar pelo site:\n\n👤 *Cliente:* ${d.cliente}\n📞 *Contato:* ${d.telefone}\n💈 *Barbeiro:* ${d.barbeiro}\n✂️ *Serviços:* ${d.servicos.join(", ")}\n💰 *Total:* ${brl(d.total)}\n📅 *Data:* ${data}\n⏰ *Horário:* ${d.horario} (${d.duracao} min)`;
+ const msg=`Olá! Acabei de agendar pelo site:\n\n👤 *Cliente:* ${d.cliente}\n📞 *Contato:* ${d.telefone}\n💈 *Barbeiro:* ${d.barbeiro}\n✂️ *Serviços:* ${d.servicos.join(", ")}\n💰 *Total:* ${totalTxt(d.total,d.combinar)}\n📅 *Data:* ${data}\n⏰ *Horário:* ${d.horario} (${d.duracao} min)`;
  const cal=`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent("Studio 01 Barbearia")}&details=${encodeURIComponent(d.servicos.join(", ")+" com "+d.barbeiro)}&dates=${d.data.replace(/-/g,"")}T${hhmm(d.inicio).replace(":","")}00/${d.data.replace(/-/g,"")}T${hhmm(d.fim).replace(":","")}00&ctz=America/Sao_Paulo`;
  $("flow").parentElement.classList.add("hide");
  const el=$("done");el.classList.remove("hide");
  el.innerHTML=`<div style="font-size:3rem">✅</div><h3>Agendamento confirmado!</h3>
- <p>${d.cliente.split(" ")[0]}, te esperamos dia <b>${data}</b> às <b>${d.horario}</b> com <b>${d.barbeiro}</b>.<br>${d.servicos.join(" + ")} • ${brl(d.total)}</p>
+ <p>${d.cliente.split(" ")[0]}, te esperamos dia <b>${data}</b> às <b>${d.horario}</b> com <b>${d.barbeiro}</b>.<br>${d.servicos.join(" + ")} • ${totalTxt(d.total,d.combinar)}</p>
  <a class="btn g" target="_blank" href="https://wa.me/${WHATS}?text=${encodeURIComponent(msg)}">Enviar confirmação no WhatsApp</a>
  <a class="btn" target="_blank" href="${cal}">Adicionar à agenda</a>
  <a class="btn" href="#agendar" onclick="location.reload()">Novo agendamento</a>`;

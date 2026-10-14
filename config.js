@@ -5,20 +5,19 @@ const DIAS_ABERTOS=[2,3,4,5,6];                   // 0=Dom ... 6=Sáb (Ter a Sá
 const DIAS_A_FRENTE=21;
 const FIREBASE={apiKey:"AIzaSyBoApswQzeMVFblfUvYMwP8TiPvheQ1KjY",authDomain:"studio01barbearia-30f4d.firebaseapp.com",projectId:"studio01barbearia-30f4d",storageBucket:"studio01barbearia-30f4d.firebasestorage.app",messagingSenderId:"933759433352",appId:"1:933759433352:web:ad50996b2281beb27a3d3d"};
 const SERVICOS=[
- {id:"barba",n:"Barba",p:15,min:30,ap:1,c:"Barba"},
- {id:"cav",n:"Cavanhaque",p:15,min:20,ap:1,c:"Barba"},
- {id:"col",n:"Coloração",p:60,min:50,ap:1,c:"Química"},
- {id:"cs",n:"Corte Simples",p:20,min:40,c:"Cabelo"},
- {id:"cd",n:"Corte Degradê",p:40,min:40,c:"Cabelo"},
- {id:"ct",n:"Corte Todo na Tesoura",p:25,min:40,ap:1,c:"Cabelo"},
- {id:"cdt",n:"Corte Degradê + Tesoura",p:45,min:50,ap:1,c:"Cabelo"},
- {id:"pz",n:"Pézinho / Acabamento",p:10,min:15,ap:1,c:"Acabamento"},
- {id:"pig",n:"Pigmentação",p:20,min:30,c:"Química"},
- {id:"pla",n:"Platinado / Nevou",p:60,min:60,c:"Química"},
- {id:"ref",n:"Reflexo / Luzes",p:60,min:60,ap:1,c:"Química"},
- {id:"sob",n:"Sobrancelha",p:10,min:15,c:"Acabamento"}];
+ {id:"bmod",n:"Barba Modelada",p:30,min:60,c:"Barba"},
+ {id:"bsim",n:"Barba Simples",p:15,min:60,c:"Barba"},
+ {id:"pz",n:"Acabamento / Pézinho",p:10,min:30,c:"Acabamento"},
+ {id:"cs",n:"Corte Simples",p:20,min:30,c:"Corte"},
+ {id:"cdis",n:"Corte Disfarçado",p:40,min:60,c:"Corte"},
+ {id:"cdist",n:"Corte Disfarçado + Tesoura",p:45,min:60,c:"Corte"},
+ {id:"cbm",n:"Corte + Barba Modelada",p:60,min:60,c:"Combo"},
+ {id:"ccav",n:"Corte + Cavanhaque",p:50,min:60,c:"Combo"},
+ {id:"cpig",n:"Corte + Pigmentação",p:60,min:60,c:"Combo"},
+ {id:"lz",n:"Luzes / Reflexo / Nevou / Platinado",p:0,combinar:1,min:60,c:"Química"}];
 const BARBEIROS=[
- {n:"Rodrigo '01'",e:"Degradê Navalhado & Fade Freestyle",img:"img/b1.jpg"},
- {n:"Lucas Silva",e:"Tesoura Clássica, Barboterapia & Pigmentação",img:"img/b2.jpg"},
- {n:"Matheus 'Nevou' Costa",e:"Platinados, Luzes & Acabamentos",img:"img/b3.jpg"}];
+ {n:"Novaes",e:"Barbeiro • Studio 01",img:"img/b2.jpg"},
+ {n:"Capoli",e:"Barbeiro • Studio 01",img:"img/b1.jpg"}];
+const precoServ=s=>s.combinar?"A combinar":"R$ "+s.p.toFixed(2).replace(".",",");
+const totalTxt=(t,comb)=>{const v="R$ "+t.toFixed(2).replace(".",",");return comb?(t>0?v+" + a combinar":"A combinar"):v};
 /* ================================================= */
