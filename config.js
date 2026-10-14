@@ -16,8 +16,8 @@ const SERVICOS=[
  {id:"cpig",n:"Corte + Pigmentação",p:60,min:60,c:"Combo"},
  {id:"lz",n:"Luzes / Reflexo / Nevou / Platinado",p:0,combinar:1,min:60,c:"Química"}];
 const BARBEIROS=[
- {n:"Novaes",e:"Barbeiro • Studio 01",img:"img/b2.jpg"},
- {n:"Capoli",e:"Barbeiro • Studio 01",img:"img/b1.jpg"}];
+ {n:"Novaes",e:"Barbeiro • Studio 01",img:"img/novaes.jpg"},
+ {n:"Capoli",e:"Barbeiro • Studio 01",img:"img/capoli.jpg"}];
 const precoServ=s=>s.combinar?"A combinar":"R$ "+s.p.toFixed(2).replace(".",",");
 const totalTxt=(t,comb)=>{const v="R$ "+t.toFixed(2).replace(".",",");return comb?(t>0?v+" + a combinar":"A combinar"):v};
 /* ================================================= */
