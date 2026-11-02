@@ -58,6 +58,22 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 .ck{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:.88rem;margin:0;color:#eee}
 .ck input{width:auto}.ck span{margin-left:auto;color:var(--mut)}
 .warn{background:#2b2108;border:1px solid #6b5313;color:#ffd666;padding:10px;border-radius:8px;font-size:.82rem;margin:10px 0}
+.tabs{display:flex;gap:6px;margin:14px 0 4px}
+.tab{flex:1;padding:11px 6px;border-radius:10px;border:1.5px solid var(--line);background:#000;color:#ccc;font-weight:600;cursor:pointer;font-family:inherit;font-size:.85rem}
+.tab.on{background:#fff;color:#000;border-color:#fff}
+.cm{display:flex;align-items:center;justify-content:space-between;margin:14px 0 6px}.cm b{font-size:1.1rem;text-transform:capitalize}
+.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cg small{text-align:center;color:var(--mut);font-size:.7rem;padding:4px 0}
+.cd{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--line);background:#0c0c0c;color:#eee;cursor:pointer;font-family:inherit;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:.9rem}
+.cd i{font-style:normal;background:var(--wa);color:#000;border-radius:999px;font-size:.68rem;font-weight:700;padding:0 6px}
+.cd.off{opacity:.3}.cd.today{border-color:#fff}.cd.blk{background:#1a0d0d}.cd.emp{visibility:hidden}
+.cf{margin-top:12px}.cf h3{margin-bottom:6px}
+.dias{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.srow{border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px}
+.srow label{margin:8px 0 3px}.srow .ck{margin:8px 8px 0 0;display:inline-flex}
+.srow .ck input{width:auto}
+.ok{color:#8ef0b0;font-size:.85rem;margin-top:10px}
 @media(min-width:600px){#md{align-items:center}#md .card{border-radius:18px}}
 </style>
 </head>
@@ -78,11 +94,15 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 <div id="app" class="hide">
  <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <button class="btn" id="bOut">Sair</button></div></div></div>
  <div class="wrap">
+  <div class="tabs"><button class="tab on" data-t="ag">📋 Agenda</button><button class="tab" data-t="cal">📅 Calendário</button><button class="tab" data-t="cfg">⚙️ Configurações</button></div>
+  <div id="vAg">
   <div class="dn"><button class="btn" id="pv">‹</button><input type="date" id="dt"><button class="btn" id="nx">›</button><button class="btn" id="hj">Hoje</button></div>
   <div class="chips" id="chips"></div>
   <div class="acts"><button class="btn w" id="bNew">＋ Novo agendamento</button><button class="btn r" id="bBlock">🔒 Bloquear horário</button></div>
   <div class="stats"><div><b id="stN">0</b><span>Agendamentos</span></div><div><b id="stV">R$ 0</b><span>Previsto no dia</span></div></div>
   <div id="list"></div>
+  </div>
+  <div id="vCal" class="hide"></div><div id="vCfg" class="hide"></div>
  </div>
 </div>
 <div id="md" class="hide"><div class="card" id="mdc"></div></div>
@@ -118,9 +138,9 @@ $("bIn").onclick=entrar;$("pw").onkeydown=e=>{if(e.key=="Enter")entrar()};
 $("bForgot").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textContent="Digite seu e-mail acima primeiro.";return}
  try{await auth.sendPasswordResetEmail(e);$("lerr").style.color="#8ef0b0";$("lerr").textContent="Enviamos um link para redefinir a senha no seu e-mail."}catch(x){$("lerr").style.color="";$("lerr").textContent=msgErr(x.code)}};
 $("bOut").onclick=()=>auth.signOut();
-auth.onAuthStateChanged(u=>{
+auth.onAuthStateChanged(async u=>{
  $("login").classList.toggle("hide",!!u);$("app").classList.toggle("hide",!u);
- if(u){$("dt").value=date;montaChips();listen()}else{off&&off();off=null}
+ if(u){await carregaConfig(db);$("dt").value=date;montaChips();listen()}else{off&&off();off=null}
 });
 
 /* ---------- agenda ---------- */
@@ -151,7 +171,7 @@ function render(){
   `<div class="card it bl"><div class="h"><b>🔒 ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${x.barbeiro=="*"?"Todos os barbeiros":esc(x.barbeiro)}</span></div><p>${esc(x.motivo||"Horário bloqueado")}</p><div class="bt"><button class="btn" data-a="free" data-id="${x.id}">Liberar horário</button></div></div>`:
   `<div class="card it"><div class="h"><b>⏰ ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${esc(x.barbeiro)}</span></div>
    <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
-   <div class="bt">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:""}<button class="btn r" data-a="del" data-id="${x.id}">Cancelar</button></div></div>`).join("");
+   <div class="bt">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:""}<button class="btn" data-a="mv" data-id="${x.id}">Remarcar</button><button class="btn r" data-a="del" data-id="${x.id}">Cancelar</button></div></div>`).join("");
 }
 $("list").onclick=async e=>{
  const b=e.target.closest("[data-a]");if(!b)return;const id=b.dataset.id,x=AG.find(i=>i.id==id);
@@ -160,6 +180,7 @@ $("list").onclick=async e=>{
   window.open(`https://wa.me/${t}?text=${encodeURIComponent(m)}`,"_blank")}
  if(b.dataset.a=="del"&&confirm(`Cancelar o horário de ${x.cliente} às ${hhmm(x.inicio)}?\nO horário volta a ficar livre no site.`)){
   const bt=db.batch();bt.delete(db.collection("agendamentos").doc(id));bt.delete(db.collection("ocupados").doc(id));await bt.commit()}
+ if(b.dataset.a=="mv")return mover(x);
  if(b.dataset.a=="free"&&confirm("Liberar este horário para os clientes?"))await db.collection("ocupados").doc(id).delete();
 };
 
@@ -215,6 +236,115 @@ $("bBlock").onclick=()=>{
   $("bS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro: '+esc(e.code||e.message)+'</div>';$("bS").disabled=false}
  };
 };
+
+/* ---------- abas ---------- */
+function tab(t){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t==t));
+ ["ag","cal","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
+ if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
+document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)tab(b.dataset.t)};
+const tOpts=(sel,from,to,st)=>{let o="",f=false;for(let t=from;t<=to;t+=st){o+=`<option value="${t}"${t==sel?" selected":""}>${hhmm(t)}</option>`;if(t==sel)f=true}return f?o:`<option value="${sel}" selected>${hhmm(sel)}</option>`+o};
+
+/* ---------- remarcar ---------- */
+function mover(x){
+ const bs=BARBEIROS.map(b=>b.n);if(!bs.includes(x.barbeiro))bs.unshift(x.barbeiro);
+ abre(`<h3>Remarcar</h3><p style="color:var(--mut);font-size:.82rem">${esc(x.cliente)} • ${esc((x.servicos||[]).join(" + "))} • ${x.fim-x.inicio} min</p>
+ <label>Data</label><input type="date" id="rD" value="${x.data}">
+ <div class="row2"><div><label>Barbeiro</label><select id="rB">${bs.map(n=>`<option${n==x.barbeiro?" selected":""}>${esc(n)}</option>`).join("")}</select></div>
+ <div><label>Início</label><select id="rH">${tOpts(x.inicio,OPEN,CLOSE-STEP,STEP)}</select></div></div>
+ <div id="mW"></div><button class="btn g full" id="rS">Salvar nova data</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ $("rS").onclick=async()=>{
+  const nd=$("rD").value,nb=$("rB").value,ini=+$("rH").value,fim=ini+(x.fim-x.inicio);
+  if(!nd)return;$("rS").disabled=true;
+  try{
+   const q=await db.collection("ocupados").where("data","==",nd).get();
+   const cf=q.docs.filter(d=>d.id!=x.id).map(d=>d.data()).filter(o=>conflito(nb,ini,fim,[o]).length);
+   if(cf.length&&!confirm("Esse horário conflita com outro agendamento ou bloqueio. Remarcar mesmo assim?")){$("rS").disabled=false;return}
+   const bt=db.batch();
+   bt.update(db.collection("agendamentos").doc(x.id),{data:nd,barbeiro:nb,inicio:ini,fim,horario:hhmm(ini)});
+   bt.set(db.collection("ocupados").doc(x.id),{barbeiro:nb,data:nd,inicio:ini,fim});
+   await bt.commit();fecha();
+  }catch(e){$("mW").innerHTML='<div class="warn">Erro: '+esc(e.code||e.message)+'</div>';$("rS").disabled=false}
+ };
+}
+
+/* ---------- calendário do mês ---------- */
+let calM=new Date();calM.setDate(1);
+async function calRender(){
+ const y=calM.getFullYear(),m=calM.getMonth(),a1=iso(new Date(y,m,1)),b1=iso(new Date(y,m+1,0)),box=$("vCal");
+ box.innerHTML='<p class="empty">Carregando…</p>';
+ try{
+  const [q1,q2]=await Promise.all([db.collection("agendamentos").where("data",">=",a1).where("data","<=",b1).get(),db.collection("ocupados").where("data",">=",a1).where("data","<=",b1).get()]);
+  const cnt={},blk={};let tot=0,n=0;
+  q1.docs.forEach(d=>{const x=d.data();cnt[x.data]=(cnt[x.data]||0)+1;tot+=+x.total||0;n++});
+  q2.docs.forEach(d=>{const x=d.data();if(x.bloqueio)blk[x.data]=1});
+  const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),hj=iso(new Date());
+  let cells="";for(let i=0;i<first;i++)cells+='<div class="cd emp"></div>';
+  for(let d=1;d<=days;d++){const dt=new Date(y,m,d),k=iso(dt);
+   cells+=`<button class="cd${DIAS_ABERTOS.includes(dt.getDay())?"":" off"}${k==hj?" today":""}${blk[k]?" blk":""}" data-d="${k}"><b>${d}</b>${cnt[k]?`<i>${cnt[k]}</i>`:""}${blk[k]?"🔒":""}</button>`}
+  box.innerHTML=`<div class="cm"><button class="btn" id="cP">‹</button><b>${calM.toLocaleDateString("pt-BR",{month:"long",year:"numeric"})}</b><button class="btn" id="cN">›</button></div>
+   <div class="stats"><div><b>${n}</b><span>Agendamentos no mês</span></div><div><b>${brl(tot)}</b><span>Previsto no mês</span></div></div>
+   <div class="cg">${["D","S","T","Q","Q","S","S"].map(x=>`<small>${x}</small>`).join("")}${cells}</div>
+   <p style="color:var(--mut);font-size:.78rem;margin-top:10px">Toque em um dia para abrir a agenda dele. 🔒 = tem bloqueio.</p>`;
+  $("cP").onclick=()=>{calM.setMonth(calM.getMonth()-1);calRender()};$("cN").onclick=()=>{calM.setMonth(calM.getMonth()+1);calRender()};
+  box.querySelectorAll(".cd[data-d]").forEach(c=>c.onclick=()=>{setDate(c.dataset.d);tab("ag")});
+ }catch(e){console.error(e);box.innerHTML='<p class="empty">Erro ao carregar o calendário.</p>'}
+}
+
+/* ---------- configurações ---------- */
+let CE=null;
+function cfgOpen(){CE=JSON.parse(JSON.stringify(RAW));cfgRender()}
+function cfgRender(){
+ const c=CE,DN=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+ $("vCfg").innerHTML=`
+ <div class="card cf"><h3>🕘 Funcionamento</h3>
+  <div class="row2"><div><label>Abre às</label><select data-p="abre" data-t="n">${tOpts(c.abre,5*60,12*60,30)}</select></div><div><label>Fecha às</label><select data-p="fecha" data-t="n">${tOpts(c.fecha,12*60,23*60,30)}</select></div></div>
+  <div class="row2"><div><label>Intervalo da grade</label><select data-p="step" data-t="n">${[15,30,60].map(v=>`<option value="${v}"${c.step==v?" selected":""}>${v} min</option>`).join("")}</select></div><div><label>Agenda aberta por (dias)</label><input type="number" min="7" max="90" data-p="diasFrente" data-t="n" value="${c.diasFrente}"></div></div>
+  <label>Dias de atendimento</label><div class="dias">${DN.map((n,i)=>`<label class="ck"><input type="checkbox" data-dia="${i}"${c.dias.includes(i)?" checked":""}>${n}</label>`).join("")}</div>
+  <label>WhatsApp da barbearia (com 55 e DDD)</label><input data-p="whats" data-t="s" value="${esc(c.whats)}"></div>
+ <div class="card cf"><h3>✂️ Serviços</h3>
+  ${c.servicos.map((s,i)=>`<div class="srow"><label>Nome</label><input data-p="servicos.${i}.n" data-t="s" value="${esc(s.n)}">
+   <div class="row3"><div><label>Preço (R$)</label><input type="number" step="0.01" min="0" data-p="servicos.${i}.p" data-t="n" value="${s.p}"${s.combinar?" disabled":""}></div><div><label>Duração (min)</label><input type="number" step="5" min="5" data-p="servicos.${i}.min" data-t="n" value="${s.min}"></div><div><label>Categoria</label><input data-p="servicos.${i}.c" data-t="s" value="${esc(s.c||"")}"></div></div>
+   <label class="ck"><input type="checkbox" data-p="servicos.${i}.combinar" data-t="b"${s.combinar?" checked":""}>Valor a combinar</label><label class="ck"><input type="checkbox" data-p="servicos.${i}.ativo" data-t="b"${s.ativo!==false?" checked":""}>Ativo no site</label>
+   <button class="btn r" style="float:right;margin-top:6px;padding:7px 12px" data-a="delS" data-i="${i}">Excluir</button></div>`).join("")}
+  <button class="btn full" data-a="addS">＋ Adicionar serviço</button></div>
+ <div class="card cf"><h3>💈 Barbeiros</h3>
+  ${c.barbeiros.map((b,i)=>`<div class="srow"><label>Nome</label><input data-p="barbeiros.${i}.n" data-t="s" value="${esc(b.n)}">
+   <label>Descrição curta</label><input data-p="barbeiros.${i}.e" data-t="s" value="${esc(b.e||"")}">
+   <label>Foto (arquivo na pasta img, ex: img/novaes.jpg)</label><input data-p="barbeiros.${i}.img" data-t="s" value="${esc(b.img||"")}">
+   <label class="ck"><input type="checkbox" data-p="barbeiros.${i}.ativo" data-t="b"${b.ativo!==false?" checked":""}>Ativo (aparece para agendar)</label>
+   <button class="btn r" style="float:right;margin-top:6px;padding:7px 12px" data-a="delB" data-i="${i}">Excluir</button></div>`).join("")}
+  <button class="btn full" data-a="addB">＋ Adicionar barbeiro</button>
+  <p style="color:var(--mut);font-size:.76rem;margin-top:10px">Ao renomear um barbeiro, agendamentos antigos continuam com o nome anterior.</p></div>
+ <button class="btn g full" data-a="save" style="position:sticky;bottom:10px">💾 Salvar configurações</button><div id="cfgMsg"></div>`;
+}
+function cfgIn(e){const t=e.target;
+ if(t.dataset.dia!=null){const d=+t.dataset.dia;CE.dias=t.checked?[...new Set([...CE.dias,d])].sort():CE.dias.filter(x=>x!=d);return}
+ if(!t.dataset.p)return;const p=t.dataset.p.split(".");let o=CE;for(let i=0;i<p.length-1;i++)o=o[p[i]];
+ o[p[p.length-1]]=t.dataset.t=="b"?t.checked:t.dataset.t=="n"?+t.value:t.value;
+ if(t.dataset.p.endsWith(".combinar")&&e.type=="change"){if(t.checked)o.p=0;cfgRender()}
+}
+$("vCfg").addEventListener("input",cfgIn);$("vCfg").addEventListener("change",cfgIn);
+$("vCfg").onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;const A=b.dataset.a,i=+b.dataset.i;
+ if(A=="addS"){CE.servicos.push({id:"s"+Date.now(),n:"Novo serviço",p:0,min:60,c:"Corte",ativo:true});cfgRender()}
+ if(A=="addB"){CE.barbeiros.push({n:"Novo barbeiro",e:"Barbeiro • Studio 01",img:"",ativo:true});cfgRender()}
+ if(A=="delS"&&confirm("Excluir este serviço? (Para só esconder do site, desmarque “Ativo”.)")){CE.servicos.splice(i,1);cfgRender()}
+ if(A=="delB"&&confirm("Excluir este barbeiro? (Para só esconder do site, desmarque “Ativo”.)")){CE.barbeiros.splice(i,1);cfgRender()}
+ if(A=="save")cfgSave();
+};
+async function cfgSave(){
+ const c=CE,er=[];c.whats=String(c.whats).replace(/\D/g,"");
+ if(c.fecha<=c.abre)er.push("O horário de fechamento precisa ser depois da abertura.");
+ if(!c.dias.length)er.push("Marque ao menos um dia de atendimento.");
+ if(c.servicos.some(s=>!String(s.n).trim()||!(s.min>0)||s.p<0))er.push("Confira nome, preço e duração dos serviços.");
+ if(!c.servicos.some(s=>s.ativo!==false))er.push("Deixe ao menos um serviço ativo.");
+ if(c.barbeiros.some(b=>!String(b.n).trim()))er.push("Todo barbeiro precisa de nome.");
+ if(!c.barbeiros.some(b=>b.ativo!==false))er.push("Deixe ao menos um barbeiro ativo.");
+ if(c.whats.length<12)er.push("Confira o número do WhatsApp (com 55 e DDD).");
+ const m=$("cfgMsg");if(er.length){m.className="warn";m.innerHTML=er.map(esc).join("<br>");return}
+ try{const clean=JSON.parse(JSON.stringify(c));await db.collection("config").doc("site").set(clean);
+  RAW=clean;aplicaConfig();montaChips();render();m.className="ok";m.textContent="✅ Salvo! O site já usa as novas configurações."}
+ catch(x){m.className="warn";m.textContent="Erro ao salvar: "+(x.code||x.message)}
+}
 </script>
 </body>
 </html>
