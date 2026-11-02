@@ -74,6 +74,18 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 .srow label{margin:8px 0 3px}.srow .ck{margin:8px 8px 0 0;display:inline-flex}
 .srow .ck input{width:auto}
 .ok{color:#8ef0b0;font-size:.85rem;margin-top:10px}
+.tab{font-size:.78rem}
+.gi{font-size:.85rem;color:#ccc;margin:8px 0}
+.gw{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0a0a;max-height:72vh}
+.gr{display:grid;position:relative}
+.gh{position:sticky;top:0;z-index:3;background:#141414;border-bottom:1px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:.85rem}
+.gt{position:sticky;left:0;z-index:2;background:#0a0a0a;color:#666;font-size:.68rem;padding:3px 6px;border-top:1px solid #1a1a1a}
+.gt.hr{color:#aaa;border-top-color:#333}
+.gc{border:0;border-top:1px solid #1a1a1a;border-left:1px solid #1a1a1a;background:transparent;cursor:pointer}
+.gc.hr{border-top-color:#333}.gc:hover{background:#181818}
+.gb{margin:2px;border-radius:8px;padding:5px 7px;font-size:.74rem;line-height:1.25;overflow:hidden;cursor:pointer;z-index:1;border-left:3px solid rgba(255,255,255,.75);color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.5)}
+.gb b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gb small{display:block;opacity:.8}
+.gb.bl{background:repeating-linear-gradient(45deg,#2a1010,#2a1010 8px,#1d0b0b 8px,#1d0b0b 16px);border-left-color:var(--red);color:#ffb4ab}
 @media(min-width:600px){#md{align-items:center}#md .card{border-radius:18px}}
 </style>
 </head>
@@ -94,7 +106,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 <div id="app" class="hide">
  <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <button class="btn" id="bOut">Sair</button></div></div></div>
  <div class="wrap">
-  <div class="tabs"><button class="tab on" data-t="ag">📋 Agenda</button><button class="tab" data-t="cal">📅 Calendário</button><button class="tab" data-t="cfg">⚙️ Configurações</button></div>
+  <div class="tabs"><button class="tab on" data-t="ag">📋 Lista</button><button class="tab" data-t="gr">🗓️ Grade</button><button class="tab" data-t="cal">📅 Mês</button><button class="tab" data-t="cfg">⚙️ Ajustes</button></div>
   <div id="vAg">
   <div class="dn"><button class="btn" id="pv">‹</button><input type="date" id="dt"><button class="btn" id="nx">›</button><button class="btn" id="hj">Hoje</button></div>
   <div class="chips" id="chips"></div>
@@ -102,7 +114,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
   <div class="stats"><div><b id="stN">0</b><span>Agendamentos</span></div><div><b id="stV">R$ 0</b><span>Previsto no dia</span></div></div>
   <div id="list"></div>
   </div>
-  <div id="vCal" class="hide"></div><div id="vCfg" class="hide"></div>
+  <div id="vGr" class="hide"></div><div id="vCal" class="hide"></div><div id="vCfg" class="hide"></div>
  </div>
 </div>
 <div id="md" class="hide"><div class="card" id="mdc"></div></div>
@@ -162,6 +174,7 @@ function listen(){
 }
 const dosel=x=>fb=="all"||x.barbeiro==fb||x.barbeiro=="*";
 function render(){
+ gridRender();
  const ag=AG.filter(dosel).map(x=>({...x,k:"ag"}));
  const bl=OC.filter(x=>x.bloqueio&&dosel(x)).map(x=>({...x,k:"bl"}));
  const all=[...ag,...bl].sort((a,b)=>a.inicio-b.inicio);
@@ -239,8 +252,8 @@ $("bBlock").onclick=()=>{
 
 /* ---------- abas ---------- */
 function tab(t){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t==t));
- ["ag","cal","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
- if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
+ ["ag","gr","cal","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
+ if(t=="gr")gridRender();if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
 document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)tab(b.dataset.t)};
 const tOpts=(sel,from,to,st)=>{let o="",f=false;for(let t=from;t<=to;t+=st){o+=`<option value="${t}"${t==sel?" selected":""}>${hhmm(t)}</option>`;if(t==sel)f=true}return f?o:`<option value="${sel}" selected>${hhmm(sel)}</option>`+o};
 
@@ -344,6 +357,50 @@ async function cfgSave(){
  try{const clean=JSON.parse(JSON.stringify(c));await db.collection("config").doc("site").set(clean);
   RAW=clean;aplicaConfig();montaChips();render();m.className="ok";m.textContent="✅ Salvo! O site já usa as novas configurações."}
  catch(x){m.className="warn";m.textContent="Erro ao salvar: "+(x.code||x.message)}
+}
+
+/* ---------- grade de horários (barbeiros nas colunas) ---------- */
+const PAL=["#1f4e79","#5b2c83","#1b6b4a","#8a4b12","#7a1f3d"];
+function gridRender(){
+ const box=$("vGr");if(box.classList.contains("hide"))return;
+ const bs=BARBEIROS.map(b=>b.n),n=Math.ceil((CLOSE-OPEN)/STEP),H=44,dtD=new Date(date+"T12:00:00");
+ const dtt=dtD.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"}),lim=v=>Math.min(n,Math.max(0,v));
+ let g='<div class="gh" style="grid-column:1;grid-row:1;z-index:4;left:0"></div>'+bs.map((b,i)=>`<div class="gh" style="grid-column:${i+2};grid-row:1;border-top:3px solid ${PAL[i%PAL.length]}">${esc(b)}</div>`).join("");
+ for(let r=0;r<n;r++){const t=OPEN+r*STEP,hr=t%60==0?" hr":"";
+  g+=`<div class="gt${hr}" style="grid-column:1;grid-row:${r+2}">${hhmm(t)}</div>`;
+  bs.forEach((b,i)=>{g+=`<button class="gc${hr}" data-b="${esc(b)}" data-t="${t}" style="grid-column:${i+2};grid-row:${r+2}"></button>`})}
+ const pos=x=>{const s=lim(Math.floor((x.inicio-OPEN)/STEP)),e=Math.max(s+1,lim(Math.ceil((x.fim-OPEN)/STEP)));return (s+2)+"/"+(e+2)};
+ let fora=0;
+ AG.forEach(x=>{const i=bs.indexOf(x.barbeiro);if(i<0){fora++;return}
+  g+=`<div class="gb" data-id="${x.id}" data-k="ag" style="grid-column:${i+2};grid-row:${pos(x)};background:${PAL[i%PAL.length]}"><b>${hhmm(x.inicio)} ${esc(x.cliente)}</b><small>${esc((x.servicos||[]).join(" + "))}</small></div>`});
+ OC.filter(x=>x.bloqueio).forEach(x=>{const i=bs.indexOf(x.barbeiro),c=x.barbeiro=="*"?"2/"+(bs.length+2):(i<0?null:String(i+2));if(!c)return;
+  g+=`<div class="gb bl" data-id="${x.id}" data-k="bl" style="grid-column:${c};grid-row:${pos(x)}">🔒 ${esc(x.motivo||"Bloqueado")}<small>${hhmm(x.inicio)}–${hhmm(x.fim)}</small></div>`});
+ const tot=AG.reduce((s,x)=>s+(+x.total||0),0),aberto=DIAS_ABERTOS.includes(dtD.getDay());
+ box.innerHTML=`<div class="dn"><button class="btn" id="gP">‹</button><input type="date" id="gD" value="${date}"><button class="btn" id="gN">›</button><button class="btn" id="gH">Hoje</button></div>
+  <p class="gi"><b style="text-transform:capitalize">${dtt}</b> • ${AG.length} agendamento(s) • ${brl(tot)}${aberto?"":" • <span style='color:#ffd666'>dia fora do atendimento</span>"}</p>
+  ${fora?`<div class="warn">${fora} agendamento(s) de barbeiro inativo: veja na aba Lista.</div>`:""}
+  <div class="gw"><div class="gr" style="grid-template-columns:52px repeat(${bs.length},minmax(130px,1fr));grid-template-rows:34px repeat(${n},${H}px);min-width:${52+130*bs.length}px">${g}</div></div>
+  <p style="color:var(--mut);font-size:.76rem;margin-top:8px">Toque num horário vazio para agendar ou bloquear. Toque num agendamento para ver os detalhes.</p>`;
+}
+$("vGr").onclick=e=>{const id=e.target.id;
+ if(id=="gP")return shift(-1);if(id=="gN")return shift(1);if(id=="gH")return setDate(iso(new Date()));
+ const bb=e.target.closest(".gb");if(bb)return detalhe(bb.dataset.id,bb.dataset.k);
+ const c=e.target.closest(".gc");if(c)escolhe(c.dataset.b,+c.dataset.t)};
+$("vGr").onchange=e=>{if(e.target.id=="gD"&&e.target.value)setDate(e.target.value)};
+$("mdc").onclick=e=>{const b=e.target.closest("[data-a]");if(b){fecha();$("list").onclick(e)}};
+function detalhe(id,k){
+ if(k=="ag"){const x=AG.find(i=>i.id==id);if(!x)return;
+  abre(`<h3>${hhmm(x.inicio)} – ${hhmm(x.fim)} • ${esc(x.barbeiro)}</h3><p style="margin:8px 0">👤 <b>${esc(x.cliente)}</b>${x.telefone?" • 📞 "+esc(x.telefone):""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.fim-x.inicio} min</p>
+  <div class="row2" style="margin-top:14px">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:"<span></span>"}<button class="btn" data-a="mv" data-id="${x.id}">Remarcar</button></div>
+  <button class="btn r full" data-a="del" data-id="${x.id}">Cancelar agendamento</button><button class="btn full" data-x="1" style="margin-top:8px">Fechar</button>`)}
+ else{const x=OC.find(i=>i.id==id);if(!x)return;
+  abre(`<h3>🔒 ${hhmm(x.inicio)} – ${hhmm(x.fim)}</h3><p style="margin:8px 0">${x.barbeiro=="*"?"Todos os barbeiros":esc(x.barbeiro)} • ${esc(x.motivo||"Bloqueado")}</p><button class="btn r full" data-a="free" data-id="${x.id}">Liberar horário</button><button class="btn full" data-x="1" style="margin-top:8px">Fechar</button>`)}
+}
+function escolhe(b,t){
+ abre(`<h3>${esc(b)} • ${hhmm(t)}</h3><p style="color:var(--mut);font-size:.82rem;margin-bottom:6px">${fdata(date)}</p>
+  <button class="btn w full" id="gNv">＋ Novo agendamento</button><button class="btn r full" id="gBl">🔒 Bloquear a partir daqui</button><button class="btn full" data-x="1" style="margin-top:8px">Fechar</button>`);
+ $("gNv").onclick=()=>{fecha();$("bNew").onclick();$("mB").value=b;$("mH").value=t};
+ $("gBl").onclick=()=>{fecha();$("bBlock").onclick();$("bB").value=b;$("bI").value=t;$("bF").value=Math.min(t+60,CLOSE)};
 }
 </script>
 </body>
