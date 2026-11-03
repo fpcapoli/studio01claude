@@ -21,7 +21,20 @@ nav .wrap{display:flex;align-items:center;justify-content:space-between;height:6
 nav img{height:44px;mix-blend-mode:lighten}
 nav div a{margin-left:18px;font-size:.85rem;color:var(--mut)}
 nav div a:hover{color:#fff}
-.hero{min-height:84vh;display:flex;align-items:center;background:linear-gradient(90deg,#000 15%,rgba(0,0,0,.45)),url(img/hero.jpg) center/cover}
+.hero{min-height:84vh;display:flex;align-items:center;position:relative;overflow:hidden;background:#000}
+.hero::before{content:"";position:absolute;inset:-24px;background:url(img/local.jpg) center 40%/cover;filter:blur(3px) brightness(.8);z-index:0}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.88) 10%,rgba(0,0,0,.45) 70%,rgba(0,0,0,.35));z-index:0}
+.hero .wrap{position:relative;z-index:1}
+.gchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.gchip{padding:9px 16px;border-radius:999px;border:1.5px solid var(--line);background:#000;color:#ddd;cursor:pointer;font-family:inherit;font-size:.85rem}
+.gchip.on{background:#fff;color:#000;border-color:#fff;font-weight:700}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.gal img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;cursor:pointer;display:block;background:#111;transition:.2s}
+.gal img:hover{transform:scale(1.02);filter:brightness(1.1)}
+.lb{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px}
+.lb img{max-width:100%;max-height:78vh;border-radius:10px}
+.lb p{color:#ccc;margin-top:10px;font-size:.9rem;text-align:center}
+.lbb{position:absolute;background:rgba(255,255,255,.14);border:none;color:#fff;font-size:1.6rem;width:46px;height:46px;border-radius:50%;cursor:pointer}
 .hero small{color:var(--mut);letter-spacing:2px;font-size:.75rem}
 .hero h1{font-size:clamp(2.6rem,8vw,5rem);line-height:1;font-weight:800;margin:12px 0 16px}
 .hero p{max-width:440px;color:#bbb;margin-bottom:24px}
@@ -105,7 +118,7 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
 </head>
 <body>
 <nav><div class="wrap"><a href="#top"><img src="logo.png" alt="Studio 01"></a>
-<div><a href="#precos">Serviços</a><a href="#" id="navMy">Entrar</a><a href="#agendar">Agendar</a><a href="#equipe">Barbeiros</a><a class="cta btn w" style="padding:8px 18px;margin-left:18px;color:#000" href="#agendar">Agendar</a></div></div></nav>
+<div><a href="#precos">Serviços</a><a href="#galeria" id="navGal" class="hide">Galeria</a><a href="#" id="navMy">Entrar</a><a href="#agendar">Agendar</a><a href="#equipe">Barbeiros</a><a class="cta btn w" style="padding:8px 18px;margin-left:18px;color:#000" href="#agendar">Agendar</a></div></div></nav>
 <div id="bn" class="bn hide"></div>
 
 <header class="hero" id="top"><div class="wrap">
@@ -117,6 +130,8 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
 </div></header>
 
 <section id="precos"><div class="wrap"><div class="tag">Tabela de preços</div><h2>Serviços &amp; Valores</h2><div class="prices" id="prices"></div></div></section>
+
+<section id="galeria" class="hide"><div class="wrap"><div class="tag">Galeria</div><h2>Nosso trabalho &amp; espaço</h2><div class="gchips" id="galChips"></div><div class="gal" id="galGrid"></div></div></section>
 
 <section id="agendar" style="background:#080808"><div class="wrap">
 <div class="tag">Agende online</div><h2>Marque seu horário</h2>
@@ -158,6 +173,7 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
  <button class="btn g full" id="aIn">Entrar</button><button class="btn full" id="aUp">Criar conta</button>
  <div class="errt" id="aErr"></div><button class="lnk" id="aFg">Esqueci minha senha</button><button class="lnk" data-x="1">Fechar</button>
 </div></div>
+<div id="lb" class="lb hide"><button class="lbb" id="lbX" style="top:14px;right:14px">✕</button><button class="lbb" id="lbP" style="left:10px;top:50%">‹</button><button class="lbb" id="lbN" style="right:10px;top:50%">›</button><img id="lbImg" alt=""><p id="lbCap"></p></div>
 <div id="telMd" class="md hide"><div class="mc">
  <h3>Qual seu WhatsApp?</h3><p class="sub">Assim mostramos aqui os horários que a barbearia marcar para você e podemos confirmar seu atendimento.</p>
  <input id="pT" inputmode="tel" placeholder="(21) 99999-9999" maxlength="15"><div class="errt" id="pErr"></div>
@@ -359,7 +375,7 @@ function iniAuth(){
   validar(false);
  });
 }
-(async()=>{if(db)await carregaConfig(db);montaTudo();iniAuth()})();
+(async()=>{if(db)await carregaConfig(db);montaTudo();iniAuth();if(db)carregaGaleria()})();
 
 /* ---------- perfil do cliente + horários marcados pela barbearia ---------- */
 let PROF=null;
@@ -408,6 +424,34 @@ async function checaAgend(){
  }catch(e){console.warn(e)}
 }
 $("bn").onclick=e=>{if(e.target.id=="bnVer")abreMeus()};
+
+/* ---------- galeria de fotos ---------- */
+let GAL=[],galView=[],galF="todos",lbI=0;
+async function carregaGaleria(){
+ try{const q=await db.collection("galeria").orderBy("ordem","desc").limit(30).get();GAL=q.docs.map(d=>({id:d.id,...d.data()}));galRender()}
+ catch(e){console.warn("galeria",e)}
+}
+function galRender(){
+ const sec=$("galeria");
+ if(!GAL.length){sec.classList.add("hide");$("navGal").classList.add("hide");return}
+ sec.classList.remove("hide");$("navGal").classList.remove("hide");
+ const cats=[["todos","Todos"],["cortes","Cortes"],["local","Nosso espaço"]].filter(([k])=>k=="todos"||GAL.some(g=>g.cat==k));
+ $("galChips").innerHTML=cats.length>2?cats.map(([k,t])=>`<button class="gchip${galF==k?" on":""}" data-k="${k}">${t}</button>`).join(""):"";
+ galView=GAL.filter(g=>galF=="todos"||g.cat==galF);
+ $("galGrid").innerHTML=galView.map((g,i)=>`<img src="${g.thumb}" alt="${esc(g.legenda||"Studio 01 Barbearia")}" data-i="${i}" loading="lazy">`).join("");
+}
+$("galGrid").onclick=e=>{const i=e.target.closest("img");if(i)abreLb(+i.dataset.i)};
+$("galChips").onclick=e=>{const b=e.target.closest("[data-k]");if(b){galF=b.dataset.k;galRender()}};
+async function abreLb(i){
+ if(!galView.length)return;lbI=(i+galView.length)%galView.length;const g=galView[lbI];
+ $("lbImg").src=g.thumb;$("lbCap").textContent=g.legenda||"";$("lb").classList.remove("hide");
+ try{const d=await db.collection("galeria_img").doc(g.id).get();
+  if(d.exists&&galView[lbI]===g&&!$("lb").classList.contains("hide"))$("lbImg").src=d.data().full}catch(e){}
+}
+$("lbP").onclick=()=>abreLb(lbI-1);$("lbN").onclick=()=>abreLb(lbI+1);
+$("lb").onclick=e=>{if(e.target.id=="lb"||e.target.id=="lbX")$("lb").classList.add("hide")};
+document.addEventListener("keydown",e=>{if($("lb").classList.contains("hide"))return;
+ if(e.key=="Escape")$("lb").classList.add("hide");if(e.key=="ArrowLeft")abreLb(lbI-1);if(e.key=="ArrowRight")abreLb(lbI+1)});
 </script>
 </body>
 </html>

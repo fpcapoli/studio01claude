@@ -55,6 +55,16 @@ service cloud.firestore {
       allow update, delete: if admin();
     }
 
+    // Galeria de fotos do site: todos veem, só o dono adiciona e apaga.
+    match /galeria/{id} {
+      allow read: if true;
+      allow write: if admin();
+    }
+    match /galeria_img/{id} {
+      allow read: if true;
+      allow write: if admin();
+    }
+
     // Configurações do site: todos leem, só o dono edita.
     match /config/{id} {
       allow read: if true;
