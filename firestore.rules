@@ -2,31 +2,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // TROQUE pelo e-mail que você vai usar para entrar no painel
     function admin() {
       return request.auth != null
-          && request.auth.token.email in ['SEU_EMAIL_AQUI@gmail.com'];
+          && request.auth.token.email in ['filipe.capoli@gmail.com'];
     }
 
-    // Dados completos do cliente: só o dono lê, edita e apaga. O site só cria.
+    function agValido() {
+      let d = request.resource.data;
+      return d.cliente is string && d.cliente.size() <= 80
+          && d.telefone is string && d.telefone.size() <= 20
+          && d.data is string && d.data.size() == 10
+          && d.inicio is int && d.fim is int && d.fim > d.inicio;
+    }
+
+    // Agendamentos: o dono vê tudo. O cliente vê os que são dele:
+    // pelo login (uid) ou pelo WhatsApp informado no perfil dele (tel).
     match /agendamentos/{id} {
-      allow create: if request.resource.data.cliente is string
-                    && request.resource.data.cliente.size() <= 80
-                    && request.resource.data.telefone is string
-                    && request.resource.data.telefone.size() <= 20
-                    && request.resource.data.data is string
-                    && request.resource.data.data.size() == 10
-                    && request.resource.data.inicio is int
-                    && request.resource.data.fim is int
-                    && request.resource.data.fim > request.resource.data.inicio;
-      allow read, update, delete: if admin();
+      allow create: if admin() || (request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && agValido());
+      allow read: if admin() || (request.auth != null && (
+                    resource.data.uid == request.auth.uid
+                    || (exists(/databases/$(database)/documents/clientes/$(request.auth.uid))
+                        && resource.data.tel != ''
+                        && resource.data.tel == get(/databases/$(database)/documents/clientes/$(request.auth.uid)).data.tel)));
+      allow update, delete: if admin();
     }
 
-    // Horários ocupados/bloqueados (SEM nome nem telefone): o site lê para esconder horários.
+    // Cadastro de clientes: cada cliente cuida só do próprio perfil; o dono vê e edita todos.
+    match /clientes/{id} {
+      allow read: if admin() || (request.auth != null && request.auth.uid == id);
+      allow create, update: if admin() || (request.auth != null
+                    && request.auth.uid == id
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasOnly(['uid','nome','email','telefone','tel'])
+                    && request.resource.data.nome is string && request.resource.data.nome.size() <= 80
+                    && request.resource.data.tel is string && request.resource.data.tel.size() <= 13);
+      allow delete: if admin();
+    }
+
+    // Horários ocupados/bloqueados (sem nome nem telefone): o site lê para esconder horários.
     match /ocupados/{id} {
       allow read: if true;
-      allow create: if admin() || (
-                       request.resource.data.keys().hasOnly(['barbeiro','data','inicio','fim'])
+      allow create: if admin() || (request.auth != null
+                    && request.resource.data.keys().hasOnly(['barbeiro','data','inicio','fim'])
                     && request.resource.data.barbeiro is string
                     && request.resource.data.barbeiro != '*'
                     && request.resource.data.inicio is int
@@ -34,6 +53,12 @@ service cloud.firestore {
                     && request.resource.data.fim > request.resource.data.inicio
                     && request.resource.data.fim - request.resource.data.inicio <= 240);
       allow update, delete: if admin();
+    }
+
+    // Configurações do site: todos leem, só o dono edita.
+    match /config/{id} {
+      allow read: if true;
+      allow write: if admin();
     }
   }
 }

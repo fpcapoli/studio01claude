@@ -74,7 +74,8 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 .srow label{margin:8px 0 3px}.srow .ck{margin:8px 8px 0 0;display:inline-flex}
 .srow .ck input{width:auto}
 .ok{color:#8ef0b0;font-size:.85rem;margin-top:10px}
-.tab{font-size:.78rem}
+.tab{font-size:.78rem;white-space:nowrap;flex:1 0 auto;padding:11px 10px}
+.tabs{overflow-x:auto}
 .gi{font-size:.85rem;color:#ccc;margin:8px 0}
 .gw{overflow:auto;border:1px solid var(--line);border-radius:12px;background:#0a0a0a;max-height:72vh}
 .gr{display:grid;position:relative}
@@ -106,7 +107,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 <div id="app" class="hide">
  <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <button class="btn" id="bOut">Sair</button></div></div></div>
  <div class="wrap">
-  <div class="tabs"><button class="tab on" data-t="ag">📋 Lista</button><button class="tab" data-t="gr">🗓️ Grade</button><button class="tab" data-t="cal">📅 Mês</button><button class="tab" data-t="cfg">⚙️ Ajustes</button></div>
+  <div class="tabs"><button class="tab on" data-t="ag">📋 Lista</button><button class="tab" data-t="gr">🗓️ Grade</button><button class="tab" data-t="cal">📅 Mês</button><button class="tab" data-t="cli">👥 Clientes</button><button class="tab" data-t="cfg">⚙️ Ajustes</button></div>
   <div id="vAg">
   <div class="dn"><button class="btn" id="pv">‹</button><input type="date" id="dt"><button class="btn" id="nx">›</button><button class="btn" id="hj">Hoje</button></div>
   <div class="chips" id="chips"></div>
@@ -114,7 +115,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
   <div class="stats"><div><b id="stN">0</b><span>Agendamentos</span></div><div><b id="stV">R$ 0</b><span>Previsto no dia</span></div></div>
   <div id="list"></div>
   </div>
-  <div id="vGr" class="hide"></div><div id="vCal" class="hide"></div><div id="vCfg" class="hide"></div>
+  <div id="vGr" class="hide"></div><div id="vCal" class="hide"></div><div id="vCli" class="hide"></div><div id="vCfg" class="hide"></div>
  </div>
 </div>
 <div id="md" class="hide"><div class="card" id="mdc"></div></div>
@@ -152,7 +153,7 @@ $("bForgot").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").tex
 $("bOut").onclick=()=>auth.signOut();
 auth.onAuthStateChanged(async u=>{
  $("login").classList.toggle("hide",!!u);$("app").classList.toggle("hide",!u);
- if(u){await carregaConfig(db);$("dt").value=date;montaChips();listen()}else{off&&off();off=null}
+ if(u){await carregaConfig(db);$("dt").value=date;montaChips();listen();clientesLive()}else{off&&off();off=null;cOff&&cOff();cOff=null}
 });
 
 /* ---------- agenda ---------- */
@@ -206,23 +207,30 @@ const conflito=(barb,ini,fim,lista)=>lista.filter(b=>(b.barbeiro==barb||b.barbei
 /* novo agendamento manual */
 $("bNew").onclick=()=>{
  abre(`<h3>Novo agendamento</h3><p style="color:var(--mut);font-size:.82rem">Para clientes que ligam ou chegam na loja • ${fdata(date)}</p>
- <label>Nome do cliente</label><input id="mN" placeholder="Nome">
- <label>WhatsApp (opcional)</label><input id="mT" inputmode="tel" placeholder="(21) 99999-9999">
+ <label>Cliente (buscar ou cadastrar)</label><input id="mC" list="dlC" placeholder="🔎 Digite nome ou telefone" autocomplete="off"><datalist id="dlC">${CLI.map(c=>`<option value="${esc(c.nome)} • ${esc(c.telefone||"sem telefone")}">`).join("")}</datalist>
+ <div class="row2"><div><label>Nome</label><input id="mN" placeholder="Nome"></div><div><label>WhatsApp</label><input id="mT" inputmode="tel" placeholder="(21) 99999-9999" maxlength="15"></div></div>
+ <div id="mI" style="font-size:.78rem;color:var(--mut);margin-top:6px">Se o cliente já existir, escolha na busca. Se for novo, preencha nome e WhatsApp: ele é cadastrado automaticamente.</div>
  <div class="row2"><div><label>Barbeiro</label><select id="mB">${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select></div>
  <div><label>Início</label><select id="mH">${timeOpts(OPEN,CLOSE-STEP)}</select></div></div>
  <label>Serviços</label><div class="sv">${SERVICOS.map(s=>`<label class="ck"><input type="checkbox" value="${s.id}">${s.n}<span>${precoServ(s)} • ${s.min}min</span></label>`).join("")}</div>
  <div id="mW"></div>
  <button class="btn g full" id="mS">Salvar agendamento</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ let sel=null;
+ $("mC").oninput=()=>{const v=$("mC").value,c=CLI.find(x=>x.nome+" • "+(x.telefone||"sem telefone")==v);
+  if(c){sel=c;$("mN").value=c.nome;$("mT").value=c.telefone;$("mI").textContent=c.conta?"✅ Cliente com conta no site: o horário aparece para ele em Meus agendamentos.":"📇 Cadastro seu: o horário aparece para ele quando criar conta no site e informar este WhatsApp."}else sel=null};
+ $("mT").oninput=e=>{e.target.value=mask(e.target.value)};
  $("mS").onclick=async()=>{
-  const nome=$("mN").value.trim(),ids=[...document.querySelectorAll("#mdc .sv input:checked")].map(i=>i.value);
+  const nome=$("mN").value.trim(),tel=telNorm($("mT").value),ids=[...document.querySelectorAll("#mdc .sv input:checked")].map(i=>i.value);
   if(!nome||!ids.length){$("mW").innerHTML='<div class="warn">Informe o nome e escolha ao menos um serviço.</div>';return}
   const sv=ids.map(id=>SERVICOS.find(s=>s.id==id)),D=sv.reduce((a,s)=>a+s.min,0),ini=+$("mH").value,fim=ini+D,barb=$("mB").value;
   const cf=conflito(barb,ini,fim,OC);
+  if(!tel&&!confirm("Sem WhatsApp o cliente não vê esse horário no site e você não consegue chamá-lo por aqui. Salvar assim mesmo?"))return;
   if(cf.length&&!confirm(`Esse horário conflita com outro agendamento ou bloqueio (${cf.map(c=>hhmm(c.inicio)+"–"+hhmm(c.fim)).join(", ")}). Salvar mesmo assim?`))return;
   if(fim>CLOSE&&!confirm(`O atendimento termina às ${hhmm(fim)}, depois do fechamento. Salvar mesmo assim?`))return;
-  const id=db.collection("agendamentos").doc().id,bt=db.batch();
-  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),combinar:sv.some(s=>s.combinar),duracao:D,manual:true,criadoEm:new Date().toISOString()});
+  const id=db.collection("agendamentos").doc().id,bt=db.batch(),cli=sel||(tel?CLI.find(x=>x.tel==tel):null)||null;
+  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),tel,uid:cli&&cli.uid?cli.uid:"",barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),combinar:sv.some(s=>s.combinar),duracao:D,manual:true,criadoEm:new Date().toISOString()});
   bt.set(db.collection("ocupados").doc(id),{barbeiro:barb,data:date,inicio:ini,fim});
+  if(!cli&&tel.length>=10)bt.set(db.collection("clientes").doc("t"+tel),{nome,telefone:telFmt(tel),tel,uid:"",manual:true,criadoEm:new Date().toISOString()});
   $("mS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro ao salvar: '+esc(e.code||e.message)+'</div>';$("mS").disabled=false}
  };
 };
@@ -252,8 +260,8 @@ $("bBlock").onclick=()=>{
 
 /* ---------- abas ---------- */
 function tab(t){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t==t));
- ["ag","gr","cal","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
- if(t=="gr")gridRender();if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
+ ["ag","gr","cal","cli","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
+ if(t=="gr")gridRender();if(t=="cli")cliRender();if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
 document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)tab(b.dataset.t)};
 const tOpts=(sel,from,to,st)=>{let o="",f=false;for(let t=from;t<=to;t+=st){o+=`<option value="${t}"${t==sel?" selected":""}>${hhmm(t)}</option>`;if(t==sel)f=true}return f?o:`<option value="${sel}" selected>${hhmm(sel)}</option>`+o};
 
@@ -401,6 +409,50 @@ function escolhe(b,t){
   <button class="btn w full" id="gNv">＋ Novo agendamento</button><button class="btn r full" id="gBl">🔒 Bloquear a partir daqui</button><button class="btn full" data-x="1" style="margin-top:8px">Fechar</button>`);
  $("gNv").onclick=()=>{fecha();$("bNew").onclick();$("mB").value=b;$("mH").value=t};
  $("gBl").onclick=()=>{fecha();$("bBlock").onclick();$("bB").value=b;$("bI").value=t;$("bF").value=Math.min(t+60,CLOSE)};
+}
+
+/* ---------- clientes ---------- */
+let CL=[],CLI=[],cOff=null;
+const mask=v=>{v=v.replace(/\D/g,"").slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3"):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,"($1) $2-$3"):v.length>2?v.replace(/(\d{2})(\d*)/,"($1) $2"):v};
+function clientesLive(){
+ cOff&&cOff();
+ cOff=db.collection("clientes").onSnapshot(s=>{CL=s.docs.map(d=>({id:d.id,...d.data()}));montaCLI();if(!$("vCli").classList.contains("hide"))cliRender(document.activeElement&&document.activeElement.id=="cqs"?document.activeElement.value:undefined)},e=>console.warn("clientes",e));
+}
+function montaCLI(){
+ const porTel={},out=[];
+ CL.filter(c=>!c.manual).forEach(c=>{const o={id:c.id,nome:c.nome||c.email||"(sem nome)",telefone:c.telefone||"",tel:c.tel||"",email:c.email||"",uid:c.uid||c.id,conta:true};out.push(o);if(o.tel)porTel[o.tel]=o});
+ CL.filter(c=>c.manual).forEach(c=>{if(c.tel&&porTel[c.tel])return;out.push({id:c.id,nome:c.nome||"(sem nome)",telefone:c.telefone||"",tel:c.tel||"",email:"",uid:"",conta:false,manual:true})});
+ CLI=out.sort((x,y)=>x.nome.localeCompare(y.nome,"pt-BR"));
+}
+function cliRender(q){
+ const box=$("vCli"),f=(q||"").toLowerCase(),dq=telNorm(q);
+ const L=CLI.filter(c=>!f||c.nome.toLowerCase().includes(f)||(dq&&c.tel.includes(dq))||c.email.toLowerCase().includes(f));
+ box.innerHTML=`<div class="card cf"><input id="cqs" placeholder="🔎 Buscar por nome, telefone ou e-mail" value="${esc(q||"")}"><button class="btn w full" data-a="newC">＋ Novo cliente</button></div>
+ <p class="gi">${L.length} cliente(s) • ${CLI.filter(c=>c.conta).length} com conta no site</p>`+
+ (L.length?L.map(c=>`<div class="card it" style="border-left-color:${c.conta?"#25d366":"#888"}"><div class="h"><b>${esc(c.nome)}</b><span>${c.conta?"✅ Com conta":"📇 Cadastro seu"}</span></div><p>📞 ${esc(c.telefone||"sem telefone")}${c.email?" • ✉️ "+esc(c.email):""}</p>
+  <div class="bt"><button class="btn w" data-a="ag" data-id="${c.id}">＋ Agendar</button>${c.tel?`<button class="btn g" data-a="wa" data-id="${c.id}">WhatsApp</button>`:""}${c.manual?`<button class="btn r" data-a="del" data-id="${c.id}">Excluir</button>`:""}</div></div>`).join(""):'<div class="empty">Nenhum cliente encontrado.</div>');
+ if(q!=null){const i=$("cqs");i.focus();i.setSelectionRange(i.value.length,i.value.length)}
+}
+$("vCli").oninput=e=>{if(e.target.id=="cqs")cliRender(e.target.value)};
+$("vCli").onclick=e=>{const b=e.target.closest("[data-a]");if(!b)return;const c=CLI.find(x=>x.id==b.dataset.id),A=b.dataset.a;
+ if(A=="newC")return novoCli();
+ if(A=="ag"&&c)return novoAg(c);
+ if(A=="wa"&&c)window.open("https://wa.me/55"+c.tel+"?text="+encodeURIComponent("Olá, "+c.nome.split(" ")[0]+"! Aqui é do Studio 01 Barbearia. 💈"),"_blank");
+ if(A=="del"&&c&&confirm(`Excluir o cadastro de ${c.nome}? Os agendamentos dele continuam na agenda.`))db.collection("clientes").doc(c.id).delete();
+};
+function novoAg(c){$("bNew").onclick();if(c){$("mC").value=c.nome+" • "+(c.telefone||"sem telefone");$("mC").oninput()}}
+function novoCli(){
+ abre(`<h3>＋ Novo cliente</h3><p style="color:var(--mut);font-size:.82rem">Quando ele criar conta no site com este WhatsApp, vai ver os horários que você marcar.</p>
+ <label>Nome</label><input id="cN" placeholder="Nome completo"><label>WhatsApp</label><input id="cT" inputmode="tel" placeholder="(21) 99999-9999" maxlength="15">
+ <div id="mW"></div><button class="btn g full" id="cS">Cadastrar</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ $("cT").oninput=e=>{e.target.value=mask(e.target.value)};
+ $("cS").onclick=async()=>{const nome=$("cN").value.trim(),tel=telNorm($("cT").value);
+  if(!nome||tel.length<10){$("mW").innerHTML='<div class="warn">Informe o nome e o WhatsApp com DDD.</div>';return}
+  const ex=CLI.find(x=>x.tel==tel);if(ex){$("mW").innerHTML='<div class="warn">Esse WhatsApp já está cadastrado em nome de <b>'+esc(ex.nome)+'</b>.</div>';return}
+  $("cS").disabled=true;
+  try{await db.collection("clientes").doc("t"+tel).set({nome,telefone:telFmt(tel),tel,uid:"",manual:true,criadoEm:new Date().toISOString()});fecha()}
+  catch(x){$("mW").innerHTML='<div class="warn">Erro: '+esc(x.code||x.message)+'</div>';$("cS").disabled=false}
+ };
 }
 </script>
 </body>

@@ -98,6 +98,7 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
 .my b.d{display:block;font-size:1rem;text-transform:capitalize}
 .my small{color:var(--mut)}
 .ph{position:absolute;inset:0;display:grid;place-items:center;font-size:5rem;font-weight:800;color:#333;font-style:normal}
+.bn{background:#0b1a11;border-bottom:1px solid #1d4d2c;padding:10px 18px;text-align:center;font-size:.88rem}
 .hide{display:none!important}
 @media(max-width:820px){.book{grid-template-columns:1fr}.sum{position:static}nav div a:not(.cta):not(#navMy){display:none}}
 </style>
@@ -105,6 +106,7 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
 <body>
 <nav><div class="wrap"><a href="#top"><img src="logo.png" alt="Studio 01"></a>
 <div><a href="#precos">Serviços</a><a href="#" id="navMy">Entrar</a><a href="#agendar">Agendar</a><a href="#equipe">Barbeiros</a><a class="cta btn w" style="padding:8px 18px;margin-left:18px;color:#000" href="#agendar">Agendar</a></div></div></nav>
+<div id="bn" class="bn hide"></div>
 
 <header class="hero" id="top"><div class="wrap">
 <small>BARBEARIA • PENHA CIRCULAR</small>
@@ -155,6 +157,11 @@ footer img{height:70px;mix-blend-mode:lighten;margin-bottom:8px}
  <input id="aE" type="email" placeholder="E-mail" autocomplete="username"><input id="aP" type="password" placeholder="Senha (mínimo 6 caracteres)" autocomplete="current-password">
  <button class="btn g full" id="aIn">Entrar</button><button class="btn full" id="aUp">Criar conta</button>
  <div class="errt" id="aErr"></div><button class="lnk" id="aFg">Esqueci minha senha</button><button class="lnk" data-x="1">Fechar</button>
+</div></div>
+<div id="telMd" class="md hide"><div class="mc">
+ <h3>Qual seu WhatsApp?</h3><p class="sub">Assim mostramos aqui os horários que a barbearia marcar para você e podemos confirmar seu atendimento.</p>
+ <input id="pT" inputmode="tel" placeholder="(21) 99999-9999" maxlength="15"><div class="errt" id="pErr"></div>
+ <button class="btn g full" id="pS">Salvar</button><button class="lnk" data-x="1">Agora não</button>
 </div></div>
 <div id="myMd" class="md hide"><div class="mc" id="myC"></div></div>
 
@@ -280,7 +287,7 @@ $("btnOk").onclick=async()=>{
  const D=dur(),cands=S.bar=="any"?BARBEIROS.map(b=>b.n):[S.bar];
  const quem=cands.find(b=>livre(b,S.time,S.time+D));
  if(!quem){alert("Ops! Esse horário acabou de ser ocupado. Escolha outro, por favor.");S.time=null;btn.textContent="Confirmar agendamento";renderSlots();return}
- const dados={cliente:$("nome").value.trim(),telefone:$("tel").value,barbeiro:quem,data:S.date,inicio:S.time,fim:S.time+D,
+ const dados={cliente:$("nome").value.trim(),telefone:$("tel").value,tel:telNorm($("tel").value),barbeiro:quem,data:S.date,inicio:S.time,fim:S.time+D,
   horario:hhmm(S.time),uid:auth&&auth.currentUser?auth.currentUser.uid:"",email:auth&&auth.currentUser?(auth.currentUser.email||""):"",servicos:[...S.sv].map(id=>SERVICOS.find(s=>s.id==id).n),total:total(),combinar:anyAp(),duracao:D,criadoEm:new Date().toISOString()};
  try{
   if(db){const id=db.collection("agendamentos").doc().id,bt=db.batch();
@@ -290,6 +297,7 @@ $("btnOk").onclick=async()=>{
   else { const k="demo_"+S.date,a=JSON.parse(localStorage.getItem(k)||"[]");a.push(dados);localStorage.setItem(k,JSON.stringify(a)); }
  }catch(err){console.error(err);alert("Não foi possível salvar agora ("+(err.code||err.message)+"). Tente novamente ou chame no WhatsApp.");btn.disabled=false;btn.textContent="Confirmar agendamento";return}
  try{localStorage.setItem("s01_tel",dados.telefone)}catch(e){}
+ if(auth&&auth.currentUser&&dados.tel!=(PROF&&PROF.tel))gravaTel(dados.tel,dados.telefone,dados.cliente).catch(()=>{});
  sucesso(dados);
 };
 
@@ -311,7 +319,7 @@ function sucesso(d){
 const logado=()=>!db||!!(auth&&auth.currentUser);
 const msgAuth=c=>({"auth/invalid-credential":"E-mail ou senha incorretos.","auth/wrong-password":"E-mail ou senha incorretos.","auth/user-not-found":"Não achamos esse e-mail. Toque em Criar conta.","auth/invalid-email":"E-mail inválido.","auth/email-already-in-use":"Esse e-mail já tem conta. Toque em Entrar.","auth/weak-password":"A senha precisa ter pelo menos 6 caracteres.","auth/popup-closed-by-user":"","auth/cancelled-popup-request":"","auth/operation-not-allowed":"Esse tipo de login ainda não foi ativado no Firebase.","auth/unauthorized-domain":"Domínio não autorizado no Firebase.","auth/too-many-requests":"Muitas tentativas. Aguarde um pouco.","auth/network-request-failed":"Sem conexão com a internet."}[c]??("Não foi possível entrar ("+c+")."));
 const abreAuth=()=>{$("aErr").textContent="";$("authMd").classList.remove("hide")};
-const fechaMd=()=>{$("authMd").classList.add("hide");$("myMd").classList.add("hide")};
+const fechaMd=()=>{$("authMd").classList.add("hide");$("myMd").classList.add("hide");$("telMd").classList.add("hide")};
 document.querySelectorAll(".md").forEach(m=>m.onclick=e=>{if(e.target===m||e.target.dataset.x)fechaMd()});
 async function tenta(fn){$("aErr").style.color="";$("aErr").textContent="";try{await fn();fechaMd()}catch(e){$("aErr").textContent=msgAuth(e.code)}}
 $("aG").onclick=()=>tenta(()=>auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()));
@@ -326,17 +334,18 @@ async function abreMeus(){
  const u=auth.currentUser;if(!u){abreAuth();return}
  const box=$("myC");$("myMd").classList.remove("hide");box.innerHTML='<p class="msg">Carregando…</p>';
  try{
-  const q=await db.collection("agendamentos").where("uid","==",u.uid).get(),L=q.docs.map(d=>d.data()),hoje=iso(new Date());
+  const L=await buscaMeus(),hoje=iso(new Date());
   const k=x=>x.data+String(x.inicio).padStart(4,"0");
   const prox=L.filter(x=>x.data>=hoje).sort((a,b)=>k(a).localeCompare(k(b))),ant=L.filter(x=>x.data<hoje).sort((a,b)=>k(b).localeCompare(k(a)));
   const card=(x,p)=>{const dt=new Date(x.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
    const m=encodeURIComponent(`Olá! Sou ${x.cliente} e tenho um agendamento dia ${x.data.split("-").reverse().join("/")} às ${x.horario} (${(x.servicos||[]).join(", ")}). Preciso alterar ou cancelar.`);
-   return `<div class="my${p?" past":""}"><b class="d">${dt} • ${hhmm(x.inicio)}</b>✂️ ${esc((x.servicos||[]).join(" + "))}<br>💈 ${esc(x.barbeiro)} • ${x.duracao||x.fim-x.inicio} min • ${totalTxt(+x.total||0,x.combinar)}${p?"":`<br><a class="btn full" style="padding:9px;font-size:.82rem" target="_blank" href="https://wa.me/${WHATS}?text=${m}">Alterar ou cancelar no WhatsApp</a>`}</div>`};
+   return `<div class="my${p?" past":""}"><b class="d">${dt} • ${hhmm(x.inicio)}</b>✂️ ${esc((x.servicos||[]).join(" + "))}<br>💈 ${esc(x.barbeiro)} • ${x.duracao||x.fim-x.inicio} min • ${totalTxt(+x.total||0,x.combinar)}${x.manual?"<br><small>🏪 Marcado pela barbearia</small>":""}${p?"":`<br><a class="btn full" style="padding:9px;font-size:.82rem" target="_blank" href="https://wa.me/${WHATS}?text=${m}">Alterar ou cancelar no WhatsApp</a>`}</div>`};
   box.innerHTML=`<h3>Meus agendamentos</h3><p class="sub">${esc(u.displayName||u.email)}</p>`+
    (prox.length?`<small style="color:var(--mut)">PRÓXIMOS</small>`+prox.map(x=>card(x,0)).join(""):'<p class="msg">Você não tem horários marcados.</p><a class="btn w full" href="#agendar" data-x="1">Agendar agora</a>')+
    (ant.length?`<small style="color:var(--mut);display:block;margin-top:16px">ANTERIORES</small>`+ant.map(x=>card(x,1)).join(""):"")+
-   `<button class="lnk" id="mOut">Sair da conta</button><button class="lnk" data-x="1">Fechar</button>`;
+   `${PROF&&!PROF.tel?'<button class="btn full" id="mTel">Informar meu WhatsApp (para ver horários marcados pela barbearia)</button>':""}<button class="lnk" id="mOut">Sair da conta</button><button class="lnk" data-x="1">Fechar</button>`;
   $("mOut").onclick=()=>{auth.signOut();fechaMd()};
+  if($("mTel"))$("mTel").onclick=()=>{fechaMd();pedeTel(true)};
  }catch(e){console.error(e);box.innerHTML='<p class="msg">Não foi possível carregar agora.</p><button class="lnk" data-x="1">Fechar</button>'}
 }
 function iniAuth(){
@@ -344,12 +353,61 @@ function iniAuth(){
  try{const t=localStorage.getItem("s01_tel");if(t&&!$("tel").value)$("tel").value=t}catch(e){}
  auth.onAuthStateChanged(u=>{
   $("navMy").textContent=u?"Meus agendamentos":"Entrar";
+  if(u)carregaPerfil(u);else{PROF=null;$("bn").classList.add("hide")}
   if(u&&!$("nome").value&&u.displayName)$("nome").value=u.displayName;
   $("authBox").innerHTML=u?`<div class="logged">✅ Conectado como <b>${esc(u.displayName||u.email)}</b> <button class="lnk" id="aOut" style="margin:0 0 0 8px">Sair</button></div>`:`<div class="logged off">Entre com sua conta para confirmar o agendamento e acompanhar seus horários.<br><button class="btn w" id="aOpen" style="margin-top:10px">Entrar / Criar conta</button></div>`;
   validar(false);
  });
 }
 (async()=>{if(db)await carregaConfig(db);montaTudo();iniAuth()})();
+
+/* ---------- perfil do cliente + horários marcados pela barbearia ---------- */
+let PROF=null;
+const mask=v=>{v=v.replace(/\D/g,"").slice(0,11);return v.length>10?v.replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3"):v.length>6?v.replace(/(\d{2})(\d{4})(\d{0,4})/,"($1) $2-$3"):v.length>2?v.replace(/(\d{2})(\d*)/,"($1) $2"):v};
+$("pT").oninput=e=>{e.target.value=mask(e.target.value)};
+async function gravaTel(t,fmt,nome){
+ const u=auth.currentUser;if(!u)return;
+ PROF=Object.assign(PROF||{uid:u.uid,nome:u.displayName||"",email:u.email||""},{telefone:fmt||telFmt(t),tel:t});
+ if(!PROF.nome&&nome)PROF.nome=nome;
+ await db.collection("clientes").doc(u.uid).set({uid:u.uid,nome:PROF.nome||"",email:PROF.email||"",telefone:PROF.telefone,tel:t},{merge:true});
+}
+async function carregaPerfil(u){
+ try{
+  const ref=db.collection("clientes").doc(u.uid),r=await ref.get();
+  if(!r.exists){PROF={uid:u.uid,nome:u.displayName||"",email:u.email||"",telefone:"",tel:""};await ref.set(PROF)}
+  else{PROF=r.data();if(!PROF.nome&&u.displayName){PROF.nome=u.displayName;ref.set({nome:u.displayName},{merge:true}).catch(()=>{})}}
+  if(PROF.tel&&!$("tel").value)$("tel").value=telFmt(PROF.tel);
+  if(!$("nome").value&&PROF.nome)$("nome").value=PROF.nome;
+  PROF.tel?checaAgend():pedeTel(false);
+ }catch(e){console.warn("perfil",e)}
+}
+function pedeTel(force){
+ if(!force&&sessionStorage.getItem("s01_pt"))return;
+ try{sessionStorage.setItem("s01_pt","1")}catch(e){}
+ $("pErr").textContent="";$("pT").value="";$("telMd").classList.remove("hide");
+}
+$("pS").onclick=async()=>{const t=telNorm($("pT").value);
+ if(t.length<10){$("pErr").textContent="Digite o DDD e o número.";return}
+ try{await gravaTel(t,$("pT").value);fechaMd();checaAgend()}catch(e){$("pErr").textContent="Não foi possível salvar ("+(e.code||e.message)+")."}};
+async function buscaMeus(){
+ const u=auth.currentUser;if(!u)return[];
+ const qs=[db.collection("agendamentos").where("uid","==",u.uid).get()];
+ if(PROF&&PROF.tel)qs.push(db.collection("agendamentos").where("tel","==",PROF.tel).get());
+ const rs=await Promise.allSettled(qs),mp={};
+ rs.forEach(r=>{if(r.status=="fulfilled")r.value.docs.forEach(d=>{mp[d.id]=d.data()})});
+ return Object.values(mp);
+}
+async function checaAgend(){
+ try{
+  const L=await buscaMeus(),hoje=iso(new Date()),k=x=>x.data+String(x.inicio).padStart(4,"0");
+  const p=L.filter(x=>x.data>=hoje).sort((a,b)=>k(a).localeCompare(k(b))),bn=$("bn");
+  if(!p.length){bn.classList.add("hide");return}
+  const x=p[0],dt=new Date(x.data+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"});
+  bn.innerHTML=`👋 Você tem <b>${p.length} horário${p.length>1?"s":""} marcado${p.length>1?"s":""}</b>: ${dt} às ${x.horario||hhmm(x.inicio)} com ${esc(x.barbeiro)}. <button class="lnk" id="bnVer" style="margin:0 0 0 6px;color:#fff">Ver detalhes</button>`;
+  bn.classList.remove("hide");
+ }catch(e){console.warn(e)}
+}
+$("bn").onclick=e=>{if(e.target.id=="bnVer")abreMeus()};
 </script>
 </body>
 </html>

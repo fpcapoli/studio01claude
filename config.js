@@ -36,3 +36,7 @@ async function carregaConfig(db){
  }catch(e){console.warn("config",e)}
  aplicaConfig();
 }
+
+/* ---- telefone: o número (só dígitos, sem 55) é a "chave" que liga cliente e agendamento ---- */
+const telNorm=v=>{let t=String(v||"").replace(/\D/g,"");if(t.length>11&&t.startsWith("55"))t=t.slice(2);return t};
+const telFmt=v=>{const t=telNorm(v);return t.length==11?t.replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3"):t.length==10?t.replace(/(\d{2})(\d{4})(\d{4})/,"($1) $2-$3"):t};
