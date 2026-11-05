@@ -195,7 +195,7 @@ function render(){
  $("list").innerHTML=all.map(x=>x.k=="bl"?
   `<div class="card it bl"><div class="h"><b>🔒 ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${x.barbeiro=="*"?"Todos os barbeiros":esc(x.barbeiro)}</span></div><p>${esc(x.motivo||"Horário bloqueado")}</p><div class="bt"><button class="btn" data-a="free" data-id="${x.id}">Liberar horário</button></div></div>`:
   `<div class="card it"><div class="h"><b>⏰ ${hhmm(x.inicio)} – ${hhmm(x.fim)}</b><span>${esc(x.barbeiro)}</span></div>
-   <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
+   <p>👤 <b>${esc(x.cliente)}</b>${x.manual?" <span style='color:var(--mut)'>(manual)</span>":""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p>${(x.silencio||x.obs)?`<p style="color:#ffd666">${x.silencio?"🤫 Em silêncio ":""}${x.obs?"📝 "+esc(x.obs):""}</p>`:""}<p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.duracao||x.fim-x.inicio} min${x.telefone?" • 📞 "+esc(x.telefone):""}</p>
    <div class="bt">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:""}<button class="btn" data-a="mv" data-id="${x.id}">Remarcar</button><button class="btn r" data-a="del" data-id="${x.id}">Cancelar</button></div></div>`).join("");
 }
 $("list").onclick=async e=>{
@@ -221,9 +221,11 @@ $("bNew").onclick=()=>{
  <label>Cliente (buscar ou cadastrar)</label><input id="mC" list="dlC" placeholder="🔎 Digite nome ou telefone" autocomplete="off"><datalist id="dlC">${CLI.map(c=>`<option value="${esc(c.nome)} • ${esc(c.telefone||"sem telefone")}">`).join("")}</datalist>
  <div class="row2"><div><label>Nome</label><input id="mN" placeholder="Nome"></div><div><label>WhatsApp</label><input id="mT" inputmode="tel" placeholder="(21) 99999-9999" maxlength="15"></div></div>
  <div id="mI" style="font-size:.78rem;color:var(--mut);margin-top:6px">Se o cliente já existir, escolha na busca. Se for novo, preencha nome e WhatsApp: ele é cadastrado automaticamente.</div>
- <div class="row2"><div><label>Barbeiro</label><select id="mB">${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select></div>
+ <div class="row2"><div><label>Barbeiro</label><select id="mB">${AGENDA_B.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select></div>
  <div><label>Início</label><select id="mH">${timeOpts(OPEN,CLOSE-STEP)}</select></div></div>
  <label>Serviços</label><div class="sv">${SERVICOS.map(s=>`<label class="ck"><input type="checkbox" value="${s.id}">${s.n}<span>${precoServ(s)} • ${s.min}min</span></label>`).join("")}</div>
+ <label class="ck" style="margin-top:10px"><input type="checkbox" id="mSil">🤫 Cliente prefere silêncio (sem conversa)</label>
+ <label>Observação (opcional)</label><input id="mObs" maxlength="200" placeholder="Ex: referência de corte, alergia...">
  <div id="mW"></div>
  <button class="btn g full" id="mS">Salvar agendamento</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
  let sel=null;
@@ -239,7 +241,7 @@ $("bNew").onclick=()=>{
   if(cf.length&&!confirm(`Esse horário conflita com outro agendamento ou bloqueio (${cf.map(c=>hhmm(c.inicio)+"–"+hhmm(c.fim)).join(", ")}). Salvar mesmo assim?`))return;
   if(fim>CLOSE&&!confirm(`O atendimento termina às ${hhmm(fim)}, depois do fechamento. Salvar mesmo assim?`))return;
   const id=db.collection("agendamentos").doc().id,bt=db.batch(),cli=sel||(tel?CLI.find(x=>x.tel==tel):null)||null;
-  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),tel,uid:cli&&cli.uid?cli.uid:"",barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),combinar:sv.some(s=>s.combinar),duracao:D,manual:true,criadoEm:new Date().toISOString()});
+  bt.set(db.collection("agendamentos").doc(id),{cliente:nome,telefone:$("mT").value.trim(),tel,uid:cli&&cli.uid?cli.uid:"",barbeiro:barb,data:date,inicio:ini,fim,horario:hhmm(ini),servicos:sv.map(s=>s.n),total:sv.reduce((a,s)=>a+s.p,0),combinar:sv.some(s=>s.combinar),duracao:D,manual:true,silencio:$("mSil").checked,obs:$("mObs").value.trim(),criadoEm:new Date().toISOString()});
   bt.set(db.collection("ocupados").doc(id),{barbeiro:barb,data:date,inicio:ini,fim});
   if(!cli&&tel.length>=10)bt.set(db.collection("clientes").doc("t"+tel),{nome,telefone:telFmt(tel),tel,uid:"",manual:true,criadoEm:new Date().toISOString()});
   $("mS").disabled=true;try{await bt.commit();fecha()}catch(e){$("mW").innerHTML='<div class="warn">Erro ao salvar: '+esc(e.code||e.message)+'</div>';$("mS").disabled=false}
@@ -249,7 +251,7 @@ $("bNew").onclick=()=>{
 /* bloquear horário */
 $("bBlock").onclick=()=>{
  abre(`<h3>🔒 Bloquear horário</h3><p style="color:var(--mut);font-size:.82rem">O horário deixa de aparecer para os clientes no site.</p>
- <label>Barbeiro</label><select id="bB"><option value="*">Todos os barbeiros</option>${BARBEIROS.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select>
+ <label>Barbeiro</label><select id="bB"><option value="*">Todos os barbeiros</option>${AGENDA_B.map(b=>`<option${b.n==fb?" selected":""}>${esc(b.n)}</option>`).join("")}</select>
  <div class="row2"><div><label>De (data)</label><input type="date" id="bD" value="${date}"></div><div><label>Até (opcional)</label><input type="date" id="bE"></div></div>
  <label class="ck" style="margin-top:12px"><input type="checkbox" id="bAll">Dia inteiro</label>
  <div class="row2" id="bHr"><div><label>Das</label><select id="bI">${timeOpts(12*60,CLOSE-STEP)}</select></div><div><label>Até às</label><select id="bF">${timeOpts(13*60)}</select></div></div>
@@ -278,7 +280,7 @@ const tOpts=(sel,from,to,st)=>{let o="",f=false;for(let t=from;t<=to;t+=st){o+=`
 
 /* ---------- remarcar ---------- */
 function mover(x){
- const bs=BARBEIROS.map(b=>b.n);if(!bs.includes(x.barbeiro))bs.unshift(x.barbeiro);
+ const bs=AGENDA_B.map(b=>b.n);if(!bs.includes(x.barbeiro))bs.unshift(x.barbeiro);
  abre(`<h3>Remarcar</h3><p style="color:var(--mut);font-size:.82rem">${esc(x.cliente)} • ${esc((x.servicos||[]).join(" + "))} • ${x.fim-x.inicio} min</p>
  <label>Data</label><input type="date" id="rD" value="${x.data}">
  <div class="row2"><div><label>Barbeiro</label><select id="rB">${bs.map(n=>`<option${n==x.barbeiro?" selected":""}>${esc(n)}</option>`).join("")}</select></div>
@@ -343,6 +345,8 @@ function cfgRender(){
   ${c.barbeiros.map((b,i)=>`<div class="srow"><label>Nome</label><input data-p="barbeiros.${i}.n" data-t="s" value="${esc(b.n)}">
    <label>Descrição curta</label><input data-p="barbeiros.${i}.e" data-t="s" value="${esc(b.e||"")}">
    <label>Foto (arquivo na pasta img, ex: img/novaes.jpg)</label><input data-p="barbeiros.${i}.img" data-t="s" value="${esc(b.img||"")}">
+   <label>Como atende</label><select data-p="barbeiros.${i}.modo" data-t="s"><option value="agenda"${b.modo!="chegada"?" selected":""}>Por agendamento (horários no site)</option><option value="chegada"${b.modo=="chegada"?" selected":""}>Ordem de chegada (sem agendamento online)</option></select>
+   <label>WhatsApp do barbeiro (opcional, com 55 e DDD)</label><input data-p="barbeiros.${i}.whats" data-t="s" value="${esc(b.whats||"")}" placeholder="5521999999999">
    <label class="ck"><input type="checkbox" data-p="barbeiros.${i}.ativo" data-t="b"${b.ativo!==false?" checked":""}>Ativo (aparece para agendar)</label>
    <button class="btn r" style="float:right;margin-top:6px;padding:7px 12px" data-a="delB" data-i="${i}">Excluir</button></div>`).join("")}
   <button class="btn full" data-a="addB">＋ Adicionar barbeiro</button>
@@ -358,13 +362,13 @@ function cfgIn(e){const t=e.target;
 $("vCfg").addEventListener("input",cfgIn);$("vCfg").addEventListener("change",cfgIn);
 $("vCfg").onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;const A=b.dataset.a,i=+b.dataset.i;
  if(A=="addS"){CE.servicos.push({id:"s"+Date.now(),n:"Novo serviço",p:0,min:60,c:"Corte",ativo:true});cfgRender()}
- if(A=="addB"){CE.barbeiros.push({n:"Novo barbeiro",e:"Barbeiro • Studio 01",img:"",ativo:true});cfgRender()}
+ if(A=="addB"){CE.barbeiros.push({n:"Novo barbeiro",e:"Barbeiro • Studio 01",img:"",modo:"agenda",whats:"",ativo:true});cfgRender()}
  if(A=="delS"&&confirm("Excluir este serviço? (Para só esconder do site, desmarque “Ativo”.)")){CE.servicos.splice(i,1);cfgRender()}
  if(A=="delB"&&confirm("Excluir este barbeiro? (Para só esconder do site, desmarque “Ativo”.)")){CE.barbeiros.splice(i,1);cfgRender()}
  if(A=="save")cfgSave();
 };
 async function cfgSave(){
- const c=CE,er=[];c.whats=String(c.whats).replace(/\D/g,"");
+ const c=CE,er=[];c.whats=String(c.whats).replace(/\D/g,"");c.barbeiros.forEach(b=>{b.whats=String(b.whats||"").replace(/\D/g,"");if(b.whats&&b.whats.length<=11)b.whats="55"+b.whats;b.modo=b.modo=="chegada"?"chegada":"agenda"});
  if(c.fecha<=c.abre)er.push("O horário de fechamento precisa ser depois da abertura.");
  if(!c.dias.length)er.push("Marque ao menos um dia de atendimento.");
  if(c.servicos.some(s=>!String(s.n).trim()||!(s.min>0)||s.p<0))er.push("Confira nome, preço e duração dos serviços.");
@@ -382,7 +386,7 @@ async function cfgSave(){
 const PAL=["#1f4e79","#5b2c83","#1b6b4a","#8a4b12","#7a1f3d"];
 function gridRender(){
  const box=$("vGr");if(box.classList.contains("hide"))return;
- const bs=BARBEIROS.map(b=>b.n),n=Math.ceil((CLOSE-OPEN)/STEP),H=44,dtD=new Date(date+"T12:00:00");
+ const bs=AGENDA_B.map(b=>b.n),n=Math.ceil((CLOSE-OPEN)/STEP),H=44,dtD=new Date(date+"T12:00:00");
  const dtt=dtD.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"}),lim=v=>Math.min(n,Math.max(0,v));
  let g='<div class="gh" style="grid-column:1;grid-row:1;z-index:4;left:0"></div>'+bs.map((b,i)=>`<div class="gh" style="grid-column:${i+2};grid-row:1;border-top:3px solid ${PAL[i%PAL.length]}">${esc(b)}</div>`).join("");
  for(let r=0;r<n;r++){const t=OPEN+r*STEP,hr=t%60==0?" hr":"";
@@ -391,13 +395,13 @@ function gridRender(){
  const pos=x=>{const s=lim(Math.floor((x.inicio-OPEN)/STEP)),e=Math.max(s+1,lim(Math.ceil((x.fim-OPEN)/STEP)));return (s+2)+"/"+(e+2)};
  let fora=0;
  AG.forEach(x=>{const i=bs.indexOf(x.barbeiro);if(i<0){fora++;return}
-  g+=`<div class="gb" data-id="${x.id}" data-k="ag" style="grid-column:${i+2};grid-row:${pos(x)};background:${PAL[i%PAL.length]}"><b>${hhmm(x.inicio)} ${esc(x.cliente)}</b><small>${esc((x.servicos||[]).join(" + "))}</small></div>`});
+  g+=`<div class="gb" data-id="${x.id}" data-k="ag" style="grid-column:${i+2};grid-row:${pos(x)};background:${PAL[i%PAL.length]}"><b>${hhmm(x.inicio)} ${esc(x.cliente)}</b><small>${esc((x.servicos||[]).join(" + "))}${x.silencio?" 🤫":""}${x.obs?" 📝":""}</small></div>`});
  OC.filter(x=>x.bloqueio).forEach(x=>{const i=bs.indexOf(x.barbeiro),c=x.barbeiro=="*"?"2/"+(bs.length+2):(i<0?null:String(i+2));if(!c)return;
   g+=`<div class="gb bl" data-id="${x.id}" data-k="bl" style="grid-column:${c};grid-row:${pos(x)}">🔒 ${esc(x.motivo||"Bloqueado")}<small>${hhmm(x.inicio)}–${hhmm(x.fim)}</small></div>`});
  const tot=AG.reduce((s,x)=>s+(+x.total||0),0),aberto=DIAS_ABERTOS.includes(dtD.getDay());
  box.innerHTML=`<div class="dn"><button class="btn" id="gP">‹</button><input type="date" id="gD" value="${date}"><button class="btn" id="gN">›</button><button class="btn" id="gH">Hoje</button></div>
   <p class="gi"><b style="text-transform:capitalize">${dtt}</b> • ${AG.length} agendamento(s) • ${brl(tot)}${aberto?"":" • <span style='color:#ffd666'>dia fora do atendimento</span>"}</p>
-  ${fora?`<div class="warn">${fora} agendamento(s) de barbeiro inativo: veja na aba Lista.</div>`:""}
+  ${fora?`<div class="warn">${fora} agendamento(s) de barbeiro sem coluna na grade (inativo ou ordem de chegada): veja na aba Lista.</div>`:""}
   <div class="gw"><div class="gr" style="grid-template-columns:52px repeat(${bs.length},minmax(130px,1fr));grid-template-rows:34px repeat(${n},${H}px);min-width:${52+130*bs.length}px">${g}</div></div>
   <p style="color:var(--mut);font-size:.76rem;margin-top:8px">Toque num horário vazio para agendar ou bloquear. Toque num agendamento para ver os detalhes.</p>`;
 }
@@ -409,7 +413,7 @@ $("vGr").onchange=e=>{if(e.target.id=="gD"&&e.target.value)setDate(e.target.valu
 $("mdc").onclick=e=>{const b=e.target.closest("[data-a]");if(b){fecha();$("list").onclick(e)}};
 function detalhe(id,k){
  if(k=="ag"){const x=AG.find(i=>i.id==id);if(!x)return;
-  abre(`<h3>${hhmm(x.inicio)} – ${hhmm(x.fim)} • ${esc(x.barbeiro)}</h3><p style="margin:8px 0">👤 <b>${esc(x.cliente)}</b>${x.telefone?" • 📞 "+esc(x.telefone):""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p><p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.fim-x.inicio} min</p>
+  abre(`<h3>${hhmm(x.inicio)} – ${hhmm(x.fim)} • ${esc(x.barbeiro)}</h3><p style="margin:8px 0">👤 <b>${esc(x.cliente)}</b>${x.telefone?" • 📞 "+esc(x.telefone):""}</p><p>✂️ ${esc((x.servicos||[]).join(" + "))}</p>${(x.silencio||x.obs)?`<p style="color:#ffd666">${x.silencio?"🤫 Em silêncio ":""}${x.obs?"📝 "+esc(x.obs):""}</p>`:""}<p>💰 ${totalTxt(+x.total||0,x.combinar)} • ${x.fim-x.inicio} min</p>
   <div class="row2" style="margin-top:14px">${x.telefone?`<button class="btn g" data-a="wa" data-id="${x.id}">WhatsApp</button>`:"<span></span>"}<button class="btn" data-a="mv" data-id="${x.id}">Remarcar</button></div>
   <button class="btn r full" data-a="del" data-id="${x.id}">Cancelar agendamento</button><button class="btn full" data-x="1" style="margin-top:8px">Fechar</button>`)}
  else{const x=OC.find(i=>i.id==id);if(!x)return;

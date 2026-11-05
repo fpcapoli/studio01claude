@@ -15,9 +15,10 @@ let SERVICOS=[
  {id:"ccav",n:"Corte + Cavanhaque",p:50,min:60,c:"Combo"},
  {id:"cpig",n:"Corte + Pigmentação",p:60,min:60,c:"Combo"},
  {id:"lz",n:"Luzes / Reflexo / Nevou / Platinado",p:0,combinar:1,min:60,c:"Química"}];
+let AGENDA_B=[];
 let BARBEIROS=[
- {n:"Novaes",e:"Barbeiro • Studio 01",img:"img/novaes.jpg"},
- {n:"Capoli",e:"Barbeiro • Studio 01",img:"img/capoli.jpg"}];
+ {n:"Novaes",e:"Barbeiro • Studio 01",img:"img/novaes.jpg",modo:"chegada",whats:"5521971283272"},
+ {n:"Capoli",e:"Barbeiro • Studio 01",img:"img/capoli.jpg",modo:"agenda",whats:""}];
 const precoServ=s=>s.combinar?"A combinar":"R$ "+s.p.toFixed(2).replace(".",",");
 const totalTxt=(t,comb)=>{const v="R$ "+t.toFixed(2).replace(".",",");return comb?(t>0?v+" + a combinar":"A combinar"):v};
 /* ================================================= */
@@ -28,11 +29,12 @@ const DEF={abre:OPEN,fecha:CLOSE,step:STEP,dias:[...DIAS_ABERTOS],diasFrente:DIA
 let RAW=JSON.parse(JSON.stringify(DEF));
 function aplicaConfig(){
  OPEN=+RAW.abre;CLOSE=+RAW.fecha;STEP=+RAW.step;DIAS_ABERTOS=RAW.dias;DIAS_A_FRENTE=+RAW.diasFrente;WHATS=RAW.whats;
- SERVICOS=RAW.servicos.filter(s=>s.ativo!==false);BARBEIROS=RAW.barbeiros.filter(b=>b.ativo!==false);
+ SERVICOS=RAW.servicos.filter(s=>s.ativo!==false);BARBEIROS=RAW.barbeiros.filter(b=>b.ativo!==false);AGENDA_B=BARBEIROS.filter(b=>b.modo!="chegada");
 }
 async function carregaConfig(db){
  try{const d=await db.collection("config").doc("site").get();
   if(d.exists){const x=d.data();for(const k in x)if(x[k]!=null)RAW[k]=x[k]}
+  RAW.barbeiros=RAW.barbeiros.map(b=>{const d0=DEF.barbeiros.find(y=>y.n==b.n)||{};return {...d0,...b,modo:b.modo||d0.modo||"agenda",whats:b.whats!=null?b.whats:(d0.whats||"")}});
  }catch(e){console.warn("config",e)}
  aplicaConfig();
 }
@@ -40,3 +42,4 @@ async function carregaConfig(db){
 /* ---- telefone: o número (só dígitos, sem 55) é a "chave" que liga cliente e agendamento ---- */
 const telNorm=v=>{let t=String(v||"").replace(/\D/g,"");if(t.length>11&&t.startsWith("55"))t=t.slice(2);return t};
 const telFmt=v=>{const t=telNorm(v);return t.length==11?t.replace(/(\d{2})(\d{5})(\d{4})/,"($1) $2-$3"):t.length==10?t.replace(/(\d{2})(\d{4})(\d{4})/,"($1) $2-$3"):t};
+aplicaConfig();
