@@ -21,7 +21,7 @@ body{background:#000;color:#eee;font-family:Inter,system-ui,sans-serif;line-heig
 .wrap{max-width:720px;margin:auto;padding:0 14px}
 .hide{display:none!important}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
-input,select{width:100%;padding:12px;background:#000;border:1.5px solid var(--line);border-radius:10px;color:#fff;font-size:1rem;font-family:inherit;outline:none}
+input,select,textarea{width:100%;padding:12px;background:#000;border:1.5px solid var(--line);border-radius:10px;color:#fff;font-size:1rem;font-family:inherit;outline:none}
 input:focus,select:focus{border-color:#fff}
 label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 .btn{padding:11px 16px;border-radius:10px;border:1px solid #444;background:#1a1a1a;color:#fff;font-weight:600;cursor:pointer;font-family:inherit;font-size:.88rem}
@@ -98,6 +98,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 .gad button{position:absolute;border:none;border-radius:8px;font-family:inherit;cursor:pointer;font-size:.72rem;padding:5px 8px;background:rgba(0,0,0,.75);color:#fff}
 .gad .x{top:4px;right:4px;background:rgba(160,30,30,.9)}.gad .ed{top:4px;left:4px}.gad .tg{left:4px;bottom:4px}
 .gad small{display:block;padding:4px 6px;color:var(--mut);font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bf{display:flex;gap:12px;align-items:center;margin-bottom:6px}.bph{width:72px;height:96px;object-fit:cover;border-radius:10px;background:#111}.bf small{display:block;color:var(--mut);font-size:.72rem;margin-top:6px}
 @media(min-width:600px){#md{align-items:center}#md .card{border-radius:18px}}
 </style>
 </head>
@@ -107,7 +108,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 <div id="login"><div class="card">
  <img src="logo.png" alt="Studio 01">
  <h2>Painel do Barbeiro</h2><p>Acesso restrito</p>
- <label style="text-align:left">E-mail</label><input id="em" type="email" autocomplete="username" placeholder="seu@email.com">
+ <label style="text-align:left">E-mail ou usuário</label><input id="em" type="text" autocapitalize="none" autocomplete="username" placeholder="seu@email.com ou usuário">
  <label style="text-align:left">Senha</label><input id="pw" type="password" autocomplete="current-password" placeholder="Sua senha">
  <button class="btn w full" id="bIn">Entrar</button>
  <div class="err" id="lerr"></div>
@@ -116,7 +117,7 @@ label{display:block;font-size:.8rem;color:var(--mut);margin:10px 0 5px}
 
 <!-- APP -->
 <div id="app" class="hide">
- <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <button class="btn" id="bOut">Sair</button></div></div></div>
+ <div class="top"><div class="wrap"><img src="logo.png" alt=""><div><a class="btn" href="index.html" target="_blank">Ver site</a> <span id="roleTag" style="color:var(--mut);font-size:.75rem;margin-right:6px"></span><button class="btn" id="bPw" title="Trocar minha senha">🔑</button> <button class="btn" id="bOut">Sair</button></div></div></div>
  <div class="wrap">
   <div class="tabs"><button class="tab on" data-t="ag">📋 Lista</button><button class="tab" data-t="gr">🗓️ Grade</button><button class="tab" data-t="cal">📅 Mês</button><button class="tab" data-t="cli">👥 Clientes</button><button class="tab" data-t="gal">🖼️ Fotos</button><button class="tab" data-t="cfg">⚙️ Ajustes</button></div>
   <div id="vAg">
@@ -154,15 +155,21 @@ $("em").value=localStorage.getItem("s01_email")||"";
 const msgErr=c=>({"auth/invalid-credential":"E-mail ou senha incorretos.","auth/wrong-password":"E-mail ou senha incorretos.","auth/user-not-found":"E-mail ou senha incorretos.","auth/invalid-email":"E-mail inválido.","auth/too-many-requests":"Muitas tentativas. Aguarde alguns minutos ou redefina a senha.","auth/network-request-failed":"Sem conexão com a internet."}[c]||"Não foi possível entrar ("+c+").");
 async function entrar(){
  $("lerr").textContent="";$("bIn").disabled=true;
- try{await auth.signInWithEmailAndPassword($("em").value.trim(),$("pw").value);localStorage.setItem("s01_email",$("em").value.trim())}
+ try{let e=$("em").value.trim().toLowerCase();if(e&&!e.includes("@"))e+="@"+DOMINIO_LOGIN;await auth.signInWithEmailAndPassword(e,$("pw").value);localStorage.setItem("s01_email",$("em").value.trim())}
  catch(e){$("lerr").textContent=msgErr(e.code)}
  $("bIn").disabled=false;
 }
 $("bIn").onclick=entrar;$("pw").onkeydown=e=>{if(e.key=="Enter")entrar()};
-$("bForgot").onclick=async()=>{const e=$("em").value.trim();if(!e){$("lerr").textContent="Digite seu e-mail acima primeiro.";return}
+$("bForgot").onclick=async()=>{let e=$("em").value.trim().toLowerCase();if(!e){$("lerr").textContent="Digite seu e-mail ou usuário acima primeiro.";return}
+ if(!e.includes("@")||e.endsWith("@"+DOMINIO_LOGIN)){$("lerr").style.color="";$("lerr").textContent="Usuários da equipe: peça ao responsável para redefinir sua senha.";return}
  try{await auth.sendPasswordResetEmail(e);$("lerr").style.color="#8ef0b0";$("lerr").textContent="Enviamos um link para redefinir a senha no seu e-mail."}catch(x){$("lerr").style.color="";$("lerr").textContent=msgErr(x.code)}};
 $("bOut").onclick=()=>auth.signOut();
+let ROLE="";
 auth.onAuthStateChanged(async u=>{
+ if(u){const em=(u.email||"").toLowerCase();ROLE=DONOS.includes(em)?"dono":(COLABS.includes(em)?"colab":"");
+  if(!ROLE){$("lerr").style.color="";$("lerr").textContent="Esta conta não tem acesso ao painel.";auth.signOut();return}
+  $("roleTag").textContent=ROLE=="dono"?"Responsável":"Colaborador";
+  document.querySelector('.tab[data-t="cfg"]').classList.toggle("hide",ROLE!="dono")}
  $("login").classList.toggle("hide",!!u);$("app").classList.toggle("hide",!u);
  if(u){await carregaConfig(db);$("dt").value=date;montaChips();listen();clientesLive()}else{off&&off();off=null;cOff&&cOff();cOff=null}
 });
@@ -272,7 +279,7 @@ $("bBlock").onclick=()=>{
 };
 
 /* ---------- abas ---------- */
-function tab(t){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t==t));
+function tab(t){if(t=="cfg"&&ROLE!="dono")return;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t==t));
  ["ag","gr","cal","cli","gal","cfg"].forEach(v=>$("v"+v[0].toUpperCase()+v.slice(1)).classList.toggle("hide",v!=t));
  if(t=="gr")gridRender();if(t=="cli")cliRender();if(t=="gal")galOpen();if(t=="cal")calRender();if(t=="cfg")cfgOpen()}
 document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(b)tab(b.dataset.t)};
@@ -341,17 +348,29 @@ function cfgRender(){
    <label class="ck"><input type="checkbox" data-p="servicos.${i}.combinar" data-t="b"${s.combinar?" checked":""}>Valor a combinar</label><label class="ck"><input type="checkbox" data-p="servicos.${i}.ativo" data-t="b"${s.ativo!==false?" checked":""}>Ativo no site</label>
    <button class="btn r" style="float:right;margin-top:6px;padding:7px 12px" data-a="delS" data-i="${i}">Excluir</button></div>`).join("")}
   <button class="btn full" data-a="addS">＋ Adicionar serviço</button></div>
+ <div class="card cf"><h3>📝 Textos do site</h3>
+  <label>Etiqueta do topo</label><input data-p="textos.etiqueta" data-t="s" value="${esc(c.textos.etiqueta)}">
+  <div class="row2"><div><label>Título (linha 1)</label><input data-p="textos.t1" data-t="s" value="${esc(c.textos.t1)}"></div><div><label>Título (linha 2)</label><input data-p="textos.t2" data-t="s" value="${esc(c.textos.t2)}"></div></div>
+  <label>Subtítulo</label><textarea data-p="textos.sub" data-t="s" rows="2">${esc(c.textos.sub)}</textarea>
+  <label class="ck" style="margin-top:12px"><input type="checkbox" data-p="textos.cortesiaOn" data-t="b"${c.textos.cortesiaOn?" checked":""}>Mostrar cortesia no agendamento</label>
+  <label>Texto da cortesia</label><input data-p="textos.cortesia" data-t="s" value="${esc(c.textos.cortesia)}">
+  <label>Endereço (rodapé, com link do mapa)</label><input data-p="textos.endereco" data-t="s" value="${esc(c.textos.endereco)}" placeholder="Rua, número, bairro, cidade">
+  <label>Instagram (@usuário)</label><input data-p="textos.instagram" data-t="s" value="${esc(c.textos.instagram)}" placeholder="@studio01barbearia">
+  <label>CNPJ / texto do rodapé</label><input data-p="textos.cnpj" data-t="s" value="${esc(c.textos.cnpj)}">
+  <label class="ck" style="margin-top:12px"><input type="checkbox" data-p="textos.avisoOn" data-t="b"${c.textos.avisoOn?" checked":""}>Mostrar aviso no topo do site</label>
+  <label>Texto do aviso</label><input data-p="textos.aviso" data-t="s" value="${esc(c.textos.aviso)}" placeholder="Ex: Fechado no feriado de 15/11"></div>
+ <div class="card cf"><h3>🗓️ Regras de agendamento</h3>
+  <label>Antecedência mínima para agendar no mesmo dia (minutos)</label><input type="number" min="0" max="1440" step="5" data-p="antecedencia" data-t="n" value="${c.antecedencia}"></div>
  <div class="card cf"><h3>💈 Barbeiros</h3>
-  ${c.barbeiros.map((b,i)=>`<div class="srow"><label>Nome</label><input data-p="barbeiros.${i}.n" data-t="s" value="${esc(b.n)}">
+  ${c.barbeiros.map((b,i)=>`<div class="srow"><div class="bf"><img src="${fotoSrc(b)}" class="bph" alt=""><div><button class="btn" data-a="foto" data-i="${i}">📷 Trocar foto</button><small>Escolha uma foto do celular ou do computador. Ela já vai para o site.</small></div></div><label>Nome</label><input data-p="barbeiros.${i}.n" data-t="s" value="${esc(b.n)}">
    <label>Descrição curta</label><input data-p="barbeiros.${i}.e" data-t="s" value="${esc(b.e||"")}">
-   <label>Foto (arquivo na pasta img, ex: img/novaes.jpg)</label><input data-p="barbeiros.${i}.img" data-t="s" value="${esc(b.img||"")}">
    <label>Como atende</label><select data-p="barbeiros.${i}.modo" data-t="s"><option value="agenda"${b.modo!="chegada"?" selected":""}>Por agendamento (horários no site)</option><option value="chegada"${b.modo=="chegada"?" selected":""}>Ordem de chegada (sem agendamento online)</option></select>
    <label>WhatsApp do barbeiro (opcional, com 55 e DDD)</label><input data-p="barbeiros.${i}.whats" data-t="s" value="${esc(b.whats||"")}" placeholder="5521999999999">
    <label class="ck"><input type="checkbox" data-p="barbeiros.${i}.ativo" data-t="b"${b.ativo!==false?" checked":""}>Ativo (aparece para agendar)</label>
    <button class="btn r" style="float:right;margin-top:6px;padding:7px 12px" data-a="delB" data-i="${i}">Excluir</button></div>`).join("")}
   <button class="btn full" data-a="addB">＋ Adicionar barbeiro</button>
   <p style="color:var(--mut);font-size:.76rem;margin-top:10px">Ao renomear um barbeiro, agendamentos antigos continuam com o nome anterior.</p></div>
- <button class="btn g full" data-a="save" style="position:sticky;bottom:10px">💾 Salvar configurações</button><div id="cfgMsg"></div>`;
+ <button class="btn g full" data-a="save" style="position:sticky;bottom:10px">💾 Salvar configurações</button><div id="cfgMsg"></div><input type="file" id="fFile" accept="image/*" style="display:none">`;
 }
 function cfgIn(e){const t=e.target;
  if(t.dataset.dia!=null){const d=+t.dataset.dia;CE.dias=t.checked?[...new Set([...CE.dias,d])].sort():CE.dias.filter(x=>x!=d);return}
@@ -362,13 +381,14 @@ function cfgIn(e){const t=e.target;
 $("vCfg").addEventListener("input",cfgIn);$("vCfg").addEventListener("change",cfgIn);
 $("vCfg").onclick=async e=>{const b=e.target.closest("[data-a]");if(!b)return;const A=b.dataset.a,i=+b.dataset.i;
  if(A=="addS"){CE.servicos.push({id:"s"+Date.now(),n:"Novo serviço",p:0,min:60,c:"Corte",ativo:true});cfgRender()}
- if(A=="addB"){CE.barbeiros.push({n:"Novo barbeiro",e:"Barbeiro • Studio 01",img:"",modo:"agenda",whats:"",ativo:true});cfgRender()}
+ if(A=="addB"){CE.barbeiros.push({id:"b"+Date.now(),n:"Novo barbeiro",e:"Barbeiro • Studio 01",img:"",modo:"agenda",whats:"",ativo:true});cfgRender()}
  if(A=="delS"&&confirm("Excluir este serviço? (Para só esconder do site, desmarque “Ativo”.)")){CE.servicos.splice(i,1);cfgRender()}
  if(A=="delB"&&confirm("Excluir este barbeiro? (Para só esconder do site, desmarque “Ativo”.)")){CE.barbeiros.splice(i,1);cfgRender()}
+ if(A=="foto"){$("fFile").dataset.i=i;$("fFile").value="";$("fFile").click()}
  if(A=="save")cfgSave();
 };
 async function cfgSave(){
- const c=CE,er=[];c.whats=String(c.whats).replace(/\D/g,"");c.barbeiros.forEach(b=>{b.whats=String(b.whats||"").replace(/\D/g,"");if(b.whats&&b.whats.length<=11)b.whats="55"+b.whats;b.modo=b.modo=="chegada"?"chegada":"agenda"});
+ const c=CE,er=[];c.whats=String(c.whats).replace(/\D/g,"");c.textos.instagram=String(c.textos.instagram||"").trim().replace(/^https?:\/\/(www\.)?instagram\.com\//,"").replace(/^@/,"").replace(/[\/?].*$/,"");c.antecedencia=Math.max(0,Math.min(1440,+c.antecedencia||0));c.barbeiros.forEach(b=>{b.whats=String(b.whats||"").replace(/\D/g,"");if(b.whats&&b.whats.length<=11)b.whats="55"+b.whats;b.modo=b.modo=="chegada"?"chegada":"agenda"});
  if(c.fecha<=c.abre)er.push("O horário de fechamento precisa ser depois da abertura.");
  if(!c.dias.length)er.push("Marque ao menos um dia de atendimento.");
  if(c.servicos.some(s=>!String(s.n).trim()||!(s.min>0)||s.p<0))er.push("Confira nome, preço e duração dos serviços.");
@@ -515,6 +535,32 @@ $("vGal").onclick=async e=>{
  }catch(x){alert("Erro: "+(x.code||x.message))}
 };
 $("vGal").onchange=e=>{if(e.target.id=="gFile"&&e.target.files.length)galUp([...e.target.files])};
+
+/* ---------- foto do barbeiro (troca quando quiser) ---------- */
+$("vCfg").addEventListener("change",e=>{if(e.target.id=="fFile"&&e.target.files[0])fotoBarbeiro(+e.target.dataset.i,e.target.files[0])});
+async function fotoBarbeiro(i,file){
+ const b=CE.barbeiros[i];
+ try{
+  const im=await lerImg(file),W=600,H=800,cv=document.createElement("canvas");cv.width=W;cv.height=H;
+  const r=Math.max(W/im.width,H/im.height),sw=W/r,sh=H/r;
+  cv.getContext("2d").drawImage(im,(im.width-sw)/2,(im.height-sh)*0.25,sw,sh,0,0,W,H);
+  let q=.82,url=cv.toDataURL("image/jpeg",q);while(url.length>300000&&q>.4){q-=.1;url=cv.toDataURL("image/jpeg",q)}
+  await db.collection("barbeiro_fotos").doc(b.id).set({img:url});
+  FOTOS[b.id]=url;b.img="db:"+b.id;
+  const barbs=RAW.barbeiros.map(x=>x.id==b.id?{...x,img:"db:"+b.id}:x);
+  await db.collection("config").doc("site").set({barbeiros:barbs},{merge:true});
+  RAW.barbeiros=barbs;aplicaConfig();cfgRender();montaChips();
+  const m=$("cfgMsg");m.className="ok";m.textContent="✅ Foto de "+b.n+" atualizada. Já aparece no site.";
+ }catch(x){cfgRender();const m=$("cfgMsg");m.className="warn";m.textContent="Não foi possível trocar a foto: "+(x.code||x.message)}
+}
+/* ---------- trocar minha senha ---------- */
+$("bPw").onclick=()=>{
+ abre(`<h3>🔑 Trocar minha senha</h3><label>Nova senha (mínimo 6 caracteres)</label><input id="npw" type="password" autocomplete="new-password">
+ <div id="mW"></div><button class="btn g full" id="npS">Salvar nova senha</button><button class="btn full" style="margin-top:8px" data-x="1">Cancelar</button>`);
+ $("npS").onclick=async()=>{const p=$("npw").value;if(p.length<6){$("mW").innerHTML='<div class="warn">A senha precisa ter pelo menos 6 caracteres.</div>';return}
+  try{await auth.currentUser.updatePassword(p);$("mW").innerHTML='<div class="ok">✅ Senha alterada.</div>';$("npS").disabled=true}
+  catch(e){$("mW").innerHTML='<div class="warn">'+(e.code=="auth/requires-recent-login"?"Por segurança, saia do painel, entre de novo e tente outra vez.":"Erro: "+esc(e.code||e.message))+'</div>'}};
+};
 </script>
 </body>
 </html>
